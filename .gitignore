@@ -1,16 +1,10 @@
 # Folders
-bin
-include
-lib
-lib64
-share
-etc
+venv_polnet
 data_generated
 polnet.egg-info
 polnet/__pycache__
 gui/core/__pycache__
 
 # Files
-.gitignore
 pyvenv.cfg
 polnet/_version.py

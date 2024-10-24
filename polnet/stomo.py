@@ -4,7 +4,6 @@ Classes with the info for a synthetic tomograms
 
 __author__ = 'Antonio Martinez-Sanchez'
 
-
 import csv
 from polnet.network import Network
 from polnet.membrane import SetMembranes
@@ -12,15 +11,14 @@ from polnet import poly as pp
 
 
 class MmerFile:
-    """
-    For handling protein (or monomer) files
+    """Class for handling protein (or monomer) files
     """
 
-    def __init__(self, in_file):
-        """
-        Constructor
+    def __init__(self, in_file:str):
+        """Initializes an MmerFile object.
 
-        :param in_file: path to the input file with extension .pns
+        :param in_file: Path to the input file with extension .pns. 
+                    If provided, the method attempts to load and parse thefile.
         """
         self.__mmer_id = None
         self.__mmer_svol = None
@@ -57,25 +55,30 @@ class MmerFile:
     def get_pmer_over_tol(self):
         return self.__pmer_over_tol
 
-    def load_mmer_file(self, in_file):
-        """
-        Load protein parameters from an input file
+    def load_mmer_file(self, in_file: str):
+        """Loads protein (or monomer) parameters from an input file and populates
+        the  object's attributes with parsed values.
 
-        :param in_file: path to the input file with extension .pns
-        """
+        The method reads an input file (in `.pms` or `.pns` format), processes
+        its  content, and assigns values to the respective attributes of the
+        `MmerFile` class.
+        Each line in the file should follow the format `variable=value`, and the
+        file may contain comments, which are ignored.
 
-        assert isinstance(in_file, str) and in_file.endswith('.pms') or in_file.endswith('.pns')
+        :param in_file: Path to the input file, which must have the `.pms` or
+        `.pns` extension.
+        """
+        assert isinstance(in_file, str)
+        assert in_file.endswith('.pms') or in_file.endswith('.pns')
 
         # Reading input file
         with open(in_file) as file:
-            for linea in file:
-                if len(linea.strip()) > 0:
-
+            for line in file:
+                if len(line.strip()) > 0:
                     # Remove coments
-                    linea = linea.split('#', 1)[0]
-
+                    line = line.split('#', 1)[0]
                     # Parsing an file entry
-                    var, value = linea.split('=')
+                    var, value = line.split('=')
                     var = var.replace(' ', '')
                     var = var.replace('\n', '')
                     value = value.replace(' ', '')
@@ -101,20 +104,24 @@ class MmerFile:
                         self.__pmer_l_max = float(value)
                     elif var == 'PMER_OVER_TOL':
                         self.__pmer_over_tol = float(value)
-                    # else:
-                    #     print('ERROR: (MmerFile - load_protein_file) input entry not recognized:', value)
-
 
 class MmerMbFile(MmerFile):
     """
-    For handling protein (or monomer) files
+    Class for handling membrane protein (or monomer) files
+
+    This class extends `MmerFile` to handle additional properties specific to
+    membrane proteins,  such as the center of the protein and membrane-related
+    attributes.
     """
 
-    def __init__(self, in_file):
-        """
-        Constructor
+    def __init__(self, in_file: str):
+        """Initializes an MmerMbFile object.
 
-        :param in_file: path to the input file with extension .pms
+        Initializes additional attributes specific to membrane proteins,
+        in addition to the attributes inherited from the `MmerFile` class.
+
+        :param in_file: Path to the input file with extension `.pms`. 
+                        If provided, it loads the membrane protein data.
         """
         super().__init__(in_file)
         self.__mmer_center = None
@@ -132,23 +139,23 @@ class MmerMbFile(MmerFile):
     def get_pmer_reverse_normals(self):
         return self.__pmer_reverse_normals
 
-    def load_mmer_mb_file(self, in_file):
-        """
-        Load protein parameters from an input file
+    def load_mmer_mb_file(self, in_file: str):
+        """Loads membrane protein parameters from an input file and updates the
+        object's attributes.
+    
+        This method extends the `load_mmer_file` method from the `MmerFile`
+        class to handle additional parameters specific to membrane proteins.
 
-        :param in_file: path to the input file with extension .pms
+        :param in_file: Path to the input file with extension `.pms`.
         """
-
         super().load_mmer_file(in_file)
 
         # Reading input file
         with open(in_file) as file:
             for linea in file:
                 if len(linea.strip()) > 0:
-
                     # Remove coments
                     linea = linea.split('#', 1)[0]
-
                     # Parsing an file entry
                     var, value = linea.split('=')
                     var = var.replace(' ', '')
@@ -165,12 +172,8 @@ class MmerMbFile(MmerFile):
                     elif var == 'PMER_REVERSE_NORMALS':
                         self.__pmer_reverse_normals = bool(value)
 
-
-
-
 class MbFile:
-    """
-    For handling membrane configuration files
+    """Class for handling membrane configuration files
     """
 
     def __init__(self):
@@ -458,7 +461,6 @@ class ActinFile(HelixFile):
                         self.__bprop = float(value)
                     elif var == 'A_MAX_P_BRANCH':
                         self.__p_branch = float(value)
-
 
 
 class SynthTomo:

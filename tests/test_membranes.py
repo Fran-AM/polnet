@@ -241,21 +241,21 @@ class TestMembranes(TestCase):
         write_mrc(tomo_lbl, MBS_FIX_GTRUTH_OUT, v_size=VOI_VSIZE, dtype=np.float32)
         write_mrc(voi, MBS_FIX_VOI, v_size=VOI_VSIZE, dtype=np.float32)
 
-    def test_mb_profile(self):
+    # def test_mb_profile(self):
 
-        # return
+    #     # return
 
-        # Generating the profile
-        R = np.linspace(-2.5*MB_THICK_RG[1], 2.5*MB_THICK_RG[1], int(math.ceil(3*MB_THICK_RG[1]/VOI_VSIZE)))
-        li = - MB_THICK_RG[1]
-        Li = np.logical_and(R >= li - VOI_VSIZE, R <= li + VOI_VSIZE).astype(float)
-        lo = MB_THICK_RG[1]
-        Lo = np.logical_and(R >= lo - VOI_VSIZE, R <= lo + VOI_VSIZE).astype(float)
-        L = sp.ndimage.gaussian_filter(Li + Lo, MB_LAYER_S_RG[1])
+    #     # Generating the profile
+    #     R = np.linspace(-2.5*MB_THICK_RG[1], 2.5*MB_THICK_RG[1], int(math.ceil(3*MB_THICK_RG[1]/VOI_VSIZE)))
+    #     li = - MB_THICK_RG[1]
+    #     Li = np.logical_and(R >= li - VOI_VSIZE, R <= li + VOI_VSIZE).astype(float)
+    #     lo = MB_THICK_RG[1]
+    #     Lo = np.logical_and(R >= lo - VOI_VSIZE, R <= lo + VOI_VSIZE).astype(float)
+    #     L = sp.ndimage.gaussian_filter(Li + Lo, MB_LAYER_S_RG[1])
 
-        # Saving the result
-        plt.plot(R, L, linewidth=3)
-        plt.ylabel('$L$')
-        plt.xlabel('$R(\\vec{n})$ [$\\mathrm{\\AA}$]')
-        plt.savefig(PRO_FIG_OUT)
-        plt.close()
+    #     # Saving the result
+    #     plt.plot(R, L, linewidth=3)
+    #     plt.ylabel('$L$')
+    #     plt.xlabel('$R(\\vec{n})$ [$\\mathrm{\\AA}$]')
+    #     plt.savefig(PRO_FIG_OUT)
+    #     plt.close()
