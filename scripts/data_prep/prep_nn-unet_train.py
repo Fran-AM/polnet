@@ -20,11 +20,11 @@ import pandas
 
 from polnet import lio
 
-ROOT_DIR = '/home/martinez/workspace/data'
-in_csv = ROOT_DIR + '/../pycharm_proj/polnet/data/data_generated/all_v4/tomos_motif_list_abs.csv'
-out_dir = ROOT_DIR + '/nn-unet/raw'
-dataset_id = '009'
-dataset_suffix = 'sinth10_all_v9'
+ROOT_DIR = '/home/f_aguilar_um/Projects/polnet'
+in_csv = ROOT_DIR + '/data/data_generated/all_v11/tomos_motif_list.csv'
+out_dir = ROOT_DIR + '/../nnunet/nnUNet_raw'
+dataset_id = '101'
+dataset_suffix = 'finetuning'
 fg_labels = {'membrane': (1, 2, 3), 'microtuble': (4,), 'actin': (5,), 'ribo': (6, 11, 12),
              'cprots': tuple(np.arange(7, 11).tolist() + np.arange(13, 26).tolist()),
              'mb_prot': tuple(range(26, 35))}

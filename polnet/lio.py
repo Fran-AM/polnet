@@ -1,8 +1,6 @@
 """
 I/O functions
-
 """
-
 __author__ = 'Antonio Martinez-Sanchez'
 
 import vtk

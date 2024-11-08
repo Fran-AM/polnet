@@ -1,9 +1,14 @@
-# Folders
-venv_polnet
-data_generated
-polnet.egg-info
+# Caches
 polnet/__pycache__
 gui/core/__pycache__
+
+#Distribution / packaging
+*.egg-info
+*.egg
+data_generated
+
+# Virtual environment
+*venv*
 
 # Files
 pyvenv.cfg

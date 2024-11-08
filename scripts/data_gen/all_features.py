@@ -42,9 +42,9 @@ from polnet.membrane import SetMembranes
 
 # Common tomogram settings
 ROOT_PATH = os.path.realpath(os.getcwd() + '/../../data')
-NTOMOS = 10 # 12
-VOI_SHAPE = (1000, 1000, 250) # (1000, 1000, 400) # (400, 400, 236) # vx or a path to a mask (1-foreground, 0-background) tomogram
-VOI_OFFS =  ((4,996), (4,996), (4,246)) # ((4,396), (4,396), (4,232)) # ((4,1852), (4,1852), (32,432)) # ((4,1852), (4,1852), (4,232)) # vx
+NTOMOS = 1 # 12
+VOI_SHAPE = (190, 190, 60) #(1000, 1000, 250) # (1000, 1000, 400) # (400, 400, 236) # vx or a path to a mask (1-foreground, 0-background) tomogram
+VOI_OFFS =  ((2,186), (4, 186), (4, 56)) #((4,996), (4,996), (4,246)) # ((4,396), (4,396), (4,232)) # ((4,1852), (4,1852), (32,432)) # ((4,1852), (4,1852), (4,232)) # vx
 VOI_VSIZE = 10 # 2.2 # A/vx
 MMER_TRIES = 20
 PMER_TRIES = 100
