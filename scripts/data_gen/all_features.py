@@ -25,8 +25,8 @@ import sys
 import csv
 import time
 import random
-
 import numpy as np
+
 from polnet.utils import *
 from polnet import lio
 from polnet import tem
@@ -143,7 +143,7 @@ MALIGN_SG = 0.2
 
 # OUTPUT FILES
 OUT_DIR = os.path.realpath(
-    ROOT_PATH + "/data_generated/all_v11"
+    ROOT_PATH + f"/data_generated/{NTOMOS}_tomos"
 )  # '/out_all_tomos_9-10' # '/only_actin' # '/out_rotations'
 os.makedirs(OUT_DIR, exist_ok=True)
 
@@ -849,5 +849,8 @@ for tomod_id in range(NTOMOS):
 
 # Storing tomograms CSV file
 set_stomos.save_csv(OUT_DIR + "/tomos_motif_list.csv")
+# Removing intermediate directories
+clean_dir(TEM_DIR)
+os.rmdir(TEM_DIR)
 
 print("Successfully terminated. (" + time.strftime("%c") + ")")
