@@ -65,7 +65,7 @@ from polnet.membrane import SetMembranes
 
 # Common tomogram settings
 ROOT_PATH = os.path.realpath(os.getcwd() + "/../../data")
-NTOMOS = 1  # 12
+NTOMOS = 100  # 12
 VOI_SHAPE = (
     630,
     630,
@@ -82,6 +82,10 @@ MMER_TRIES = 10
 PMER_TRIES = 100
 
 MEMBRANES_LIST = []
+# MEMBRANES_LIST = [
+#     "in_mbs/sphere.mbs",
+#     "in_mbs/ellipse.mbs",
+# ]
 HELIX_LIST = []
 PROTEINS_LIST = [
     "in_10A/6pxm_10A.pns",
@@ -104,7 +108,7 @@ SURF_DEC = 0.9  # Target reduction factor for surface decimation (default None)
 TILT_ANGS = np.arange(
     -60, 60, 3
 )  # range(-90, 91, 3) # at MPI-B IMOD only works for ranges
-DETECTOR_SNR = [1.0, 2.0]  # 0.2 # [.15, .25]
+DETECTOR_SNR = [0.025, 0.1]  # 0.2 # [.15, .25]
 MALIGN_MN = 1
 MALIGN_MX = 1.5
 MALIGN_SG = 0.2
