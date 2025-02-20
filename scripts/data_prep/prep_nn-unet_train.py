@@ -26,18 +26,25 @@ from polnet import lio
 ROOT_DIR = Path(__file__)
 ROOT_DIR = ROOT_DIR.joinpath(Path("../../../data")).resolve()
 in_csv = ROOT_DIR.joinpath(
-    Path("data_generated/all_v11/tomos_motif_list.csv")
+    Path("data_generated/200_tomos/tomos_motif_list.csv")
 ).resolve()
 out_dir = os.getenv("nnUNet_raw") or os.path.join(ROOT_DIR + "/data_prepared")
-dataset_id = "099"
-dataset_suffix = "cetnet"
+dataset_id = "001"
+dataset_suffix = "200polnetfiltered"
+# fg_labels = {
+#     "membrane": (1, 2, 3),
+#     "microtuble": (4,),
+#     "actin": (5,),
+#     "ribo": (6, 11, 12),
+#     "cprots": tuple(np.arange(7, 11).tolist() + np.arange(13, 26).tolist()),
+#     "mb_prot": tuple(range(26, 35)),
+# }
 fg_labels = {
-    "membrane": (1, 2, 3),
-    "microtuble": (4,),
-    "actin": (5,),
-    "ribo": (6, 11, 12),
-    "cprots": tuple(np.arange(7, 11).tolist() + np.arange(13, 26).tolist()),
-    "mb_prot": tuple(range(26, 35)),
+    "apo-ferritin": (1,),
+    "beta-galactosidase": (2,),
+    "ribosome": (3,),
+    "thyroglobulin": (4,),
+    "virus-like-particle": (5,),
 }
 
 # Parsing tomograms filenames from the CSV file
@@ -78,7 +85,7 @@ for tomo_id, tomo_in in enumerate(tomos):
 
 # Json configuration file
 dict_json = {
-    "channel_names": {"0": "rescale_to_0_1"},
+    "channel_names": {"0": "zscore"},
     "labels": out_labels,
     "numTraining": len(tomos),
     "file_ending": ".nrrd",
