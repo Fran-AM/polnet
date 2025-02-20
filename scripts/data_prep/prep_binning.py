@@ -16,18 +16,22 @@ import shutil
 import nrrd
 import json
 import time
+import torch
 
 import numpy as np
 import scipy as sp
+import pandas as pd
 import pandas
 
+from glob import glob
 from polnet import lio
+from polnet.utils import *
 
 ROOT_DIR = '/home/aguilar/Projects'
-in_csv = ROOT_DIR + '/polnet/data/data_generated/250_tomos/tomos_motif_list.csv'
+in_csv = ROOT_DIR + '/polnet/data/data_generated/300_tomos/tomos_motif_list.csv'
 out_dir = ROOT_DIR + '/nnunet/nnUNet_raw'
-dataset_id = '004'
-dataset_suffix = 'polnet350bis'
+dataset_id = '001'
+dataset_suffix = 'pretrainingpolnet'
 # fg_labels = {'membrane': (1, 2, 3), 'microtuble': (4,), 'actin': (5,), 'ribo': (6, 11, 12),
 #              'cprots': tuple(np.arange(7, 11).tolist() + np.arange(13, 26).tolist()),  'mb_prot': tuple(range(26, 35))}
 fg_labels = {
@@ -45,7 +49,7 @@ fg_radii = {
     "virus-like-particle": 130,
 } # in A
 v_size_decimal = 3 # number of decimal to cut the voxel size precision
-VOI_OFFS =  ((4,626), (4,626), (4,188)) # None (default)
+VOI_OFFS =  ((4,311), (4,311), (4,88)) # None (default)
 
 # Parsing tomograms filenames from the CSV file
 df = pandas.read_csv(in_csv, delimiter='\t')
@@ -69,28 +73,46 @@ for tomo_id, tomo_in in enumerate(tomos):
     print('Processing tomogram:', tomo_in)
     tomo_df = df[df['Tomo3D'] == tomo_in]
     tomo = lio.load_mrc(tomo_in)
-    seg_post = np.zeros(shape=tomo.shape, dtype=np.uint8)
+
+    tomo_gpu = torch.tensor(tomo, device="cuda")
+    z, y, x = tomo_gpu.shape
+    tomo = tomo_gpu.view(z // 2, 2, y // 2, 2, x // 2, 2).mean(dim=(1, 3, 5)).cpu().numpy()
+    # seg_post = np.zeros(shape=tomo.shape, dtype=np.uint8)
+    print(f"Tomogram shape = {tomo.shape}")
+    seg_post = np.zeros(shape=(315,315,92), dtype=np.uint8)
+
+    # Falta hacer algunas pruebas con los ejes
+
+    # for filter_id, filter_name in enumerate(sorted(glob(f"{ROOT_DIR}/polnet/tsv/tomo*"))):
+        
+    #     target_spectrum = pd.read_csv(filter_name, sep="\t")["intensity"].values
+    #     filtered_tomo = match_spectrum(tomo, target_spectrum, False, 0)
+
     v_sizes = lio.read_mrc_v_size(tomo_in)
     v_sizes = (round(float(v_sizes[0]), v_size_decimal), round(float(v_sizes[1]), v_size_decimal),
                round(float(v_sizes[2]), v_size_decimal))
-    if (v_sizes[0] != v_sizes[1]) or (v_sizes[0] != v_sizes[1]):
-        print('\t-WARNING: this tomograms cannot pre processes due to its anisotropic voxel size ', v_sizes)
-        continue
+    #     if (v_sizes[0] != v_sizes[1]) or (v_sizes[0] != v_sizes[2]):
+    #         print('\t-WARNING: this tomograms cannot pre processes due to its anisotropic voxel size ', v_sizes)
+    #         continue
     v_size_i = 1. / v_sizes[0]
+    nrrd.write(imgs_tr_dir + '/tomo_' + str(tomo_id).zfill(3) + '_0000.nrrd', tomo)
+
     for i, key in enumerate(fg_labels.keys()):
         print('\tProcessing label:', key)
         hold_lbl = i + 1
         feat_df = tomo_df[(tomo_df['Label'].isin(fg_labels[key])) & (~tomo_df["Code"].isin(["ellipse"]))]
-        tomo_centers = np.ones(shape=tomo.shape, dtype=bool)
+        
+        tomo_centers = np.ones(shape=(315,315,92), dtype=bool)
+        
         x_coords, y_coords, z_coords = feat_df['X'].to_numpy(), feat_df['Y'].to_numpy(), feat_df['Z'].to_numpy()
-        coords = (np.round(x_coords * v_size_i).astype(int), np.round(y_coords * v_size_i).astype(int),
-                  np.round(z_coords * v_size_i).astype(int))
+        coords = (np.round(x_coords * v_size_i /2).astype(int), np.round(y_coords * v_size_i/2).astype(int),
+                  np.round(z_coords * v_size_i/2).astype(int))
         np.put(tomo_centers, np.ravel_multi_index(coords, dims=tomo_centers.shape), False, mode='clip')
         tomo_dsts = sp.ndimage.distance_transform_edt(tomo_centers).astype(np.float32)
-        seg_post[tomo_dsts <= (fg_radii[key] * v_size_i)] = hold_lbl
+        seg_post[tomo_dsts <= (fg_radii[key] * v_size_i/2)] = hold_lbl
         out_labels[key] = hold_lbl
         out_labels[key] = hold_lbl
-    nrrd.write(imgs_tr_dir + '/tomo_' + str(tomo_id).zfill(3) + '_0000.nrrd', tomo)
+    
     if VOI_OFFS is not None:
         off_mask = np.zeros(shape=seg_post.shape, dtype=seg_post.dtype)
         off_mask[VOI_OFFS[0][0]:VOI_OFFS[0][1], VOI_OFFS[1][0]:VOI_OFFS[1][1], VOI_OFFS[2][0]:VOI_OFFS[2][1]] = 1

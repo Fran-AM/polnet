@@ -8,12 +8,15 @@ import os
 import shutil
 import errno
 import stat
+import warnings
 import vtk
 import math
 import numpy as np
+import scipy as sp
 import skimage
 
 from vtkmodules.util import numpy_support
+from scipy.interpolate import interp1d
 
 # CONSTANTS
 
@@ -675,3 +678,85 @@ def connectivity_analysis(tomo, th, connectivity=None):
         if feat_sz >= th:
             tomo_sz[ids] = feat_sz
     return tomo_sz
+
+def hypot_nd(axes, offset=0.5):
+    if len(axes) == 2:
+        return np.hypot(
+            axes[0] - max(axes[0].shape) * offset,
+            axes[1] - max(axes[1].shape) * offset,
+        )
+    else:
+        return np.hypot(
+            hypot_nd(axes[1:], offset),
+            axes[0] - max(axes[0].shape) * offset,
+        )
+
+def rad_avg(image):
+        
+    bins = np.max(image.shape)/2
+
+    axes = np.ogrid[tuple(slice(0,s) for s in image.shape)]
+    r = hypot_nd(axes)
+    
+    rbin = (bins*r/r.max()).astype(int)
+    radial_mean = sp.ndimage.mean(image, labels=rbin, index=np.arange(1, rbin.max()+1))
+    
+    return radial_mean
+
+
+def rot_kernel(arr, shape):
+
+    func = interp1d(np.arange(len(arr)), arr, bounds_error=False, fill_value=0)
+
+    axes = np.ogrid[tuple(slice(0, np.ceil(s/2)) for s in shape)]
+    kernel = hypot_nd(axes, offset=0).astype("f4")
+    kernel = func(kernel).astype("f4")
+    for idx, s in enumerate(shape):
+        padding = [(0,0)]*len(shape)
+        padding[idx] = (int(np.floor(s/2)), 0)
+        
+        mode = "reflect" if s % 2 else "symmetric"
+        
+        kernel = np.pad(kernel, padding, mode=mode)
+    
+    return kernel
+
+def match_spectrum(tomo, target_spectrum, cutoff=None, smooth=0):
+    target_spectrum = target_spectrum.copy()
+    tomo -= tomo.min()
+    tomo /= tomo.max()
+
+    t = np.fft.fftn(tomo)
+    t = np.fft.fftshift(t)
+
+    del tomo
+
+    input_spectrum = rad_avg(np.abs(t))
+    target_spectrum.resize(len(input_spectrum))
+    equal_v = target_spectrum / input_spectrum
+
+    if cutoff:
+        if smooth:
+            slope = len(equal_v) / smooth
+            offset = 2 * slope * ((cutoff - len(equal_v) / 2) / len(equal_v))
+
+            cutoff_v = 1 / (1 + np.exp(np.linspace(-slope, slope, len(equal_v)) - offset))
+
+        else:
+            cutoff_v = np.ones_like(equal_v)
+            try:
+                equal_v[cutoff:] = 0
+            except IndexError:
+                warnings.warn("Flat cutoff is higher than maximum frequency")
+
+        equal_v *= cutoff_v
+
+    equal_kernel = rot_kernel(equal_v, t.shape)
+
+    t *= equal_kernel
+    del equal_kernel
+
+    t = np.fft.ifftn(t)
+    t = np.abs(t).astype("f4")
+
+    return t

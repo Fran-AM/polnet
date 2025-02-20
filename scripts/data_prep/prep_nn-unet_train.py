@@ -31,14 +31,6 @@ in_csv = ROOT_DIR.joinpath(
 out_dir = os.getenv("nnUNet_raw") or os.path.join(ROOT_DIR + "/data_prepared")
 dataset_id = "002"
 dataset_suffix = "polnet100"
-# fg_labels = {
-#     "membrane": (1, 2, 3),
-#     "microtuble": (4,),
-#     "actin": (5,),
-#     "ribo": (6, 11, 12),
-#     "cprots": tuple(np.arange(7, 11).tolist() + np.arange(13, 26).tolist()),
-#     "mb_prot": tuple(range(26, 35)),
-# }
 fg_labels = {
     "apo-ferritin": (1,),
     "beta-galactosidase": (2,),

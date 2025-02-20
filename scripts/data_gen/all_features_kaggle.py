@@ -65,27 +65,22 @@ from polnet.membrane import SetMembranes
 
 # Common tomogram settings
 ROOT_PATH = os.path.realpath(os.getcwd() + "/../../data")
-NTOMOS = 100  # 12
+NTOMOS = 1  # 12
 VOI_SHAPE = (
     630,
     630,
     184,
 )
 VOI_OFFS = (
-    (4, 626),
-    (4, 626),
-    (4, 180),
+    (4, VOI_SHAPE[0] - 4),
+    (4, VOI_SHAPE[1] - 4),
+    (4, VOI_SHAPE[2] - 4),
 )
-VOI_VSIZE = 10
-# Con esto seguramente podamos ajustar el tamaño de los clusters
+VOI_VSIZE = 10.012444196428572
 MMER_TRIES = 10
 PMER_TRIES = 100
 
 MEMBRANES_LIST = []
-# MEMBRANES_LIST = [
-#     "in_mbs/sphere.mbs",
-#     "in_mbs/ellipse.mbs",
-# ]
 HELIX_LIST = []
 PROTEINS_LIST = [
     "in_10A/6pxm_10A.pns",
@@ -145,7 +140,7 @@ clean_dir(TEM_DIR)
 clean_dir(TOMOS_DIR)
 
 # Save labels table
-unit_lbl = 1
+unit_lbl = 0
 header_lbl_tab = ["MODEL", "LABEL"]
 with open(OUT_DIR + "/labels_table.csv", "w") as file_csv:
     writer_csv = csv.DictWriter(
@@ -156,17 +151,17 @@ with open(OUT_DIR + "/labels_table.csv", "w") as file_csv:
         writer_csv.writerow(
             {header_lbl_tab[0]: MEMBRANES_LIST[i], header_lbl_tab[1]: unit_lbl}
         )
-        unit_lbl += 1
+        # unit_lbl += 1
     for i in range(len(HELIX_LIST)):
         writer_csv.writerow(
             {header_lbl_tab[0]: HELIX_LIST[i], header_lbl_tab[1]: unit_lbl}
         )
-        unit_lbl += 1
+        # unit_lbl += 1
     for i in range(len(PROTEINS_LIST)):
         writer_csv.writerow(
             {header_lbl_tab[0]: PROTEINS_LIST[i], header_lbl_tab[1]: unit_lbl}
         )
-        unit_lbl += 1
+        # unit_lbl += 1
     for i in range(len(MB_PROTEINS_LIST)):
         writer_csv.writerow(
             {
@@ -174,7 +169,7 @@ with open(OUT_DIR + "/labels_table.csv", "w") as file_csv:
                 header_lbl_tab[1]: unit_lbl,
             }
         )
-        unit_lbl += 1
+        # unit_lbl += 1
 
 
 # Loop for tomograms
@@ -274,7 +269,9 @@ for tomod_id in range(NTOMOS):
                     memb.get_den_cf_rg()[0], memb.get_den_cf_rg()[1]
                 )
         elif memb.get_type() == "toroid":
-            mb_tor_generator = TorGen(radius_rg=(param_rg[0], param_rg[1]))
+            mb_tor_generator = TorGen(
+                radius_rg=unit_lbl(param_rg[0], param_rg[1])
+            )
             set_mbs = SetMembranes(
                 voi,
                 VOI_VSIZE,
@@ -300,7 +297,8 @@ for tomod_id in range(NTOMOS):
         voi = set_mbs.get_voi()
         mb_mask = set_mbs.get_tomo() > 0
         mb_mask[voi_inital_invert] = False
-        tomo_lbls[mb_mask] = entity_id
+        # TODO CHANGE tomo_lbls[mb_mask] = entity_id
+        tomo_lbls[mb_mask] = 0
         count_mbs += set_mbs.get_num_mbs()
         mb_voxels += (tomo_lbls == entity_id).sum()
         tomo_den = np.maximum(tomo_den, hold_den)
