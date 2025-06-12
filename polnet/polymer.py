@@ -778,10 +778,9 @@ class SAWLCPoly(Polymer):
             np.asarray(p0), self.__poly
         )
         hold_monomer = Monomer(self._Polymer__m_surf, self._Polymer__m_diam)
-        hold_q = gen_rand_quaternion_on_vector(hold_n)
         # hold_q = np.asarray((1, 0., 0., 1.), dtype=np.float32)
         if rot is None:
-            hold_q = gen_rand_unit_quaternion()
+            hold_q = gen_rand_quaternion_on_vector(hold_n)
         else:
             assert hasattr(rot, "__len__") and (len(rot) == 4)
             hold_q = rot
