@@ -261,7 +261,7 @@ class MbSphere(Mb):
         p0_v[2] -= dz2
         x_l, y_l, z_l = -dx2, -dy2, -dz2
         x_h, y_h, z_h = -dx2 + dx, -dy2 + dy, -dz2 + dz
-        X, Y, Z = np.meshgrid(np.arange(x_l, x_h), np.arange(y_l, y_h), np.arange(z_l, z_h), indexing='xy')
+        X, Y, Z = np.meshgrid(np.arange(x_l, x_h), np.arange(y_l, y_h), np.arange(z_l, z_h), indexing='ij')
 
         # Mask generation
         R_o = ((X - p0_v[0]) / ao_v) ** 2 + ((Y - p0_v[1]) / ao_v) ** 2 + ((Z - p0_v[2]) / ao_v) ** 2
@@ -440,12 +440,18 @@ class SetMembranes:
         while self.get_mb_occupancy() < self.__occ:
 
             # Polymer initialization
-            p0 = np.asarray((self.__voi.shape[0] * self.__v_size * random.random(),
-                             self.__voi.shape[1] * self.__v_size * random.random(),
-                             self.__voi.shape[2] * self.__v_size * random.random()))
+            # Calculate the margin to ensure the membrane doesn't overflow
+            margin = round((self.__param_rg[1] + self.__thick_rg[1]) / self.__v_size * 1.1)
+
+            # Generate the random center within the VOI boundaries, considering the margin
+            p0_vox = np.asarray((random.randint(margin, self.__voi.shape[0] - margin - 1),
+                             random.randint(margin, self.__voi.shape[1] - margin - 1),
+                             random.randint(margin, self.__voi.shape[2] - margin - 1)))
+            # Convert center to physical units
+            p0 = p0_vox * self.__v_size
             thick, layer_s = random.uniform(self.__thick_rg[0], self.__thick_rg[1]), \
                              random.uniform(self.__layer_rg[0], self.__layer_rg[1])
-            rot_q = gen_rand_unit_quaternion()
+            rot_q = np.array([1,0,0,0])
 
             try:
 

@@ -175,7 +175,14 @@ class MmerMbFile(MmerFile):
                     elif var == "MB_Z_HEIGHT":
                         self.__mb_z_height = int(value)
                     elif var == "PMER_REVERSE_NORMALS":
-                        self.__pmer_reverse_normals = bool(value)
+                        if value == "True":
+                            value = True
+                            self.__pmer_reverse_normals = value
+                        elif value == "False":
+                            value = False
+                            self.__pmer_reverse_normals = value
+                        else:
+                            print('ERROR: PMER_REVERSE_NORMALS must be True or False and it was', value)
 
 
 class MbFile:
