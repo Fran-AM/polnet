@@ -438,6 +438,11 @@ def widgets_membrane_params():
     )
     mb_min_rad_widget.style.description_width = "initial"
 
+    mb_max_rad_widget = widgets.BoundedFloatText(
+        value=200, min=0, step=0.0001, max=100000000, description="MB_MAX_RAD:"
+    )
+    mb_max_rad_widget.style.description_width = "initial"
+
     mb_den_cf_rg_widget = widgets.FloatRangeSlider(
         value=[0.3, 0.5], min=0, max=1, step=0.0001, description="MB_DEN_CF_RG:"
     )
@@ -457,6 +462,7 @@ def widgets_membrane_params():
         "mb_max_ecc_widget": "Maximum ellipsoid eccentricity",
         "mb_over_tol_widget": "% overlapping tolerance",
         "mb_min_rad_widget": "Minimum spherical membrane radius",
+        "mb_max_rad_widget": "Maximum spherical membrane radius",
         "mb_den_cf_rg_widget": "% density factor",
     }
 
@@ -499,6 +505,12 @@ def widgets_membrane_params():
         ),
         widgets.HBox(
             [
+                mb_max_rad_widget,
+                widgets.Label(value=labels["mb_max_rad_widget"]),
+            ]
+        ),
+        widgets.HBox(
+            [
                 mb_den_cf_rg_widget,
                 widgets.Label(value=labels["mb_den_cf_rg_widget"]),
             ]
@@ -516,6 +528,7 @@ def widgets_membrane_params():
         mb_max_ecc_widget,
         mb_over_tol_widget,
         mb_min_rad_widget,
+        mb_max_rad_widget,
         mb_den_cf_rg_widget,
         file_destination_widget,
         save_button,

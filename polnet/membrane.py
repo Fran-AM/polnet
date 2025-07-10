@@ -440,15 +440,9 @@ class SetMembranes:
         while self.get_mb_occupancy() < self.__occ:
 
             # Polymer initialization
-            # Calculate the margin to ensure the membrane doesn't overflow
-            margin = round((self.__param_rg[1] + self.__thick_rg[1]) / self.__v_size * 1.1)
-
-            # Generate the random center within the VOI boundaries, considering the margin
-            p0_vox = np.asarray((random.randint(margin, self.__voi.shape[0] - margin - 1),
-                             random.randint(margin, self.__voi.shape[1] - margin - 1),
-                             random.randint(margin, self.__voi.shape[2] - margin - 1)))
-            # Convert center to physical units
-            p0 = p0_vox * self.__v_size
+            p0 = np.asarray((self.__voi.shape[0] * self.__v_size * random.random(),
+                             self.__voi.shape[1] * self.__v_size * random.random(),
+                             self.__voi.shape[2] * self.__v_size * random.random()))
             thick, layer_s = random.uniform(self.__thick_rg[0], self.__thick_rg[1]), \
                              random.uniform(self.__layer_rg[0], self.__layer_rg[1])
             rot_q = np.array([1,0,0,0])
