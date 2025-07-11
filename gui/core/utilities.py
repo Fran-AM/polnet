@@ -219,6 +219,7 @@ def write_membrane(
     mb_max_ecc,
     mb_over_tol,
     mb_min_rad,
+    mb_max_rad,
     mb_den_cf_rg,
     outpath,
 ):
@@ -231,8 +232,9 @@ def write_membrane(
     :param mb_max_ecc: maximun ellipsoid eccentricity
     :param mb_over_tol: overlapping tolerance
     :param mb_min_rad: minimum membrane sphere radius
+    :param mb_max_rad: maximum membrane sphere radius
     :param mb_den_cf_rg: density factor
-    :parama outpath: path to save the file
+    :param outpath: path to save the file
     """
     # Crear el contenido del archivo de texto
     file_content = f"""MB_TYPE = {mb_type}
@@ -242,6 +244,7 @@ MB_LAYER_S_RG = {mb_layer_s_rg} # A
 MB_MAX_ECC = {mb_max_ecc}
 MB_OVER_TOL = {mb_over_tol} # In percentage
 MB_MIN_RAD = {mb_min_rad}
+MB_MAX_RAD = {mb_max_rad}
 MB_DEN_CF_RG = {mb_den_cf_rg}
 """
 

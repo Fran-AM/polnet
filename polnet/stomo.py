@@ -175,7 +175,14 @@ class MmerMbFile(MmerFile):
                     elif var == "MB_Z_HEIGHT":
                         self.__mb_z_height = int(value)
                     elif var == "PMER_REVERSE_NORMALS":
-                        self.__pmer_reverse_normals = bool(value)
+                        if value == "True":
+                            value = True
+                            self.__pmer_reverse_normals = value
+                        elif value == "False":
+                            value = False
+                            self.__pmer_reverse_normals = value
+                        else:
+                            print('ERROR: PMER_REVERSE_NORMALS must be True or False and it was', value)
 
 
 class MbFile:
@@ -191,6 +198,7 @@ class MbFile:
         self.__max_ecc = None
         self.__over_tol = None
         self.__min_rad = None
+        self.__max_rad = None
         self.__den_cf_rg = None
 
     def get_type(self):
@@ -213,6 +221,9 @@ class MbFile:
 
     def get_min_rad(self):
         return self.__min_rad
+
+    def get_max_rad(self):
+        return self.__max_rad
 
     def get_den_cf_rg(self):
         return self.__den_cf_rg
@@ -267,13 +278,15 @@ class MbFile:
                         self.__over_tol = float(value)
                     elif var == "MB_MIN_RAD":
                         self.__min_rad = float(value)
+                    elif var == "MB_MAX_RAD":
+                        self.__max_rad = float(value)
                     elif var == "MB_DEN_CF_RG":
                         value_0 = value[value.index("(") + 1 : value.index(",")]
                         value_1 = value[value.index(",") + 1 : value.index(")")]
                         self.__den_cf_rg = (float(value_0), float(value_1))
                     else:
                         print(
-                            "ERROR: (MmerFile - load_protein_file) input entry not recognized:",
+                            "ERROR: (MbFile - load_mb_file) input entry not recognized:",
                             value,
                         )
 
