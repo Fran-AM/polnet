@@ -67,9 +67,9 @@ from polnet.membrane import SetMembranes
 ROOT_PATH = os.path.realpath(os.getcwd() + "/../../data")
 NTOMOS = 1
 VOI_SHAPE = (
-    300,
-    300,
-    100,
+    1000,
+    1000,
+    250,
 )
 VOI_OFFS = (
     (4, VOI_SHAPE[0] - 4),
@@ -87,7 +87,10 @@ MEMBRANES_LIST = [
     "in_mbs/toroid.mbs",
 ]
 
-HELIX_LIST = ["in_helix/mt.hns", "in_helix/actin.hns"]
+HELIX_LIST = [
+    "in_helix/mt.hns",
+    "in_helix/actin.hns"
+    ]
 
 PROTEINS_LIST = [
     "in_10A/4v4r_10A.pns",
@@ -125,7 +128,7 @@ MB_PROTEINS_LIST = [
 ]
 
 # Proportions list, specifies the proportion for each protein, this proportion is tried to be achieved but no guaranteed
-# The toal sum of this list must be 1
+# The total sum of this list must be 1
 PROP_LIST = None  # [.4, .6]
 if PROP_LIST is not None:
     assert sum(PROP_LIST) == 1
