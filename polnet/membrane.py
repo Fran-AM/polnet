@@ -445,7 +445,7 @@ class SetMembranes:
                              self.__voi.shape[2] * self.__v_size * random.random()))
             thick, layer_s = random.uniform(self.__thick_rg[0], self.__thick_rg[1]), \
                              random.uniform(self.__layer_rg[0], self.__layer_rg[1])
-            rot_q = np.array([1,0,0,0])
+            rot_q = gen_rand_unit_quaternion()
 
             try:
 
@@ -459,7 +459,7 @@ class SetMembranes:
                 elif isinstance(self.__gen_rnd_surfs, SphGen):
                     rad = self.__gen_rnd_surfs.gen_parameters()
                     hold_mb = MbSphere(self.__voi.shape, v_size=self.__v_size,
-                                       center=p0, rot_q=rot_q, thick=thick, layer_s=layer_s, rad=rad)
+                                       center=p0, thick=thick, layer_s=layer_s, rad=rad)
                     hold_rad = rad
                 elif isinstance(self.__gen_rnd_surfs, TorGen):
                     tor_axes = self.__gen_rnd_surfs.gen_parameters()
