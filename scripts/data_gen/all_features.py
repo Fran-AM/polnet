@@ -67,8 +67,8 @@ from polnet.membrane import SetMembranes
 ROOT_PATH = os.path.realpath(os.getcwd() + "/../../data")
 NTOMOS = 1
 VOI_SHAPE = (
-    1000,
-    1000,
+    300,
+    300,
     250,
 )
 VOI_OFFS = (
