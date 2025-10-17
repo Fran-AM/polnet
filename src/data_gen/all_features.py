@@ -2,11 +2,14 @@ import math
 import os
 import sys
 import time
+import random
 
 import numpy as np
 
+from polnet.utils import poly as pp
 from polnet.utils import lio 
 from polnet.samplegeneration.synthetictomo.synth_tomo import SynthTomo
+from polnet.samplegeneration.membranes.set_membranes import SetMembranes
 from polnet.tomofiles.mb_file import MbFile
 
 # Common tomogram settings
@@ -181,11 +184,12 @@ for tomod_id in range(NTOMOS):
             memb.get_max_ecc(),
         )
         if memb.get_type() == "sphere":
-            mb_sph_generator = SphGen(radius_rg=(param_rg[0], param_rg[1]))
+            #mb_sph_generator = SphGen(radius_rg=(param_rg[0], param_rg[1]))
             set_mbs = SetMembranes(
                 voi,
                 VOI_VSIZE,
-                mb_sph_generator,
+                #mb_sph_generator,
+                None,
                 param_rg,
                 memb.get_thick_rg(),
                 memb.get_layer_s_rg(),
@@ -196,7 +200,7 @@ for tomod_id in range(NTOMOS):
             set_mbs.build_set(verbosity=True)
             hold_den = set_mbs.get_tomo()
             if memb.get_den_cf_rg() is not None:
-                hold_den *= mb_sph_generator.gen_den_cf(
+                hold_den *= random.uniform(
                     memb.get_den_cf_rg()[0], memb.get_den_cf_rg()[1]
                 )
         else:
@@ -222,3 +226,6 @@ for tomod_id in range(NTOMOS):
             skel_vtp = pp.merge_polys(skel_vtp, hold_vtp)
         synth_tomo.add_set_mbs(set_mbs, "Membrane", entity_id, memb.get_type())
     entity_id += 1
+
+    write_mrc_path = TOMOS_DIR + "/tomo_" + str(tomod_id) + "_den.mrc"
+    lio.write_mrc(tomo_den, write_mrc_path, v_size=VOI_VSIZE, dtype=np.float32)

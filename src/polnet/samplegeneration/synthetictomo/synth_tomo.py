@@ -1,7 +1,9 @@
 """Module for managing a synthetic tomogram"""
 
 from polnet.samplegeneration.membranes.mb import Mb
+from polnet.samplegeneration.membranes.set_membranes import SetMembranes
 import polnet.utils.poly as pp
+
 
 class SynthTomo:
     """
@@ -81,34 +83,34 @@ class SynthTomo:
     #                 )
     #             )
 
-    # def add_set_mbs(self, set_mbs, m_type, lbl, code, dec=None):
-    #     """
-    #     Membrane surface point coordinates are added to the tomogram motif list
-    #     In rotations the normal vector to each point is stored as: X->Q0, Y->Q1 , Z->Q2 and 0->Q3
+    def add_set_mbs(self, set_mbs, m_type, lbl, code, dec=None):
+        """
+        Membrane surface point coordinates are added to the tomogram motif list
+        In rotations the normal vector to each point is stored as: X->Q0, Y->Q1 , Z->Q2 and 0->Q3
 
-    #     :param set_mbs: a membrane set object instance
-    #     :param m_type: string with the type of motif contained in the network
-    #     :param lbl: integer label
-    #     :param code: string code for membrane
-    #     :param dec: if not None (default) the membrane points are decimated according this factor
-    #     """
-    #     assert issubclass(type(set_mbs), SetMembranes)
-    #     assert isinstance(m_type, str)
-    #     assert isinstance(lbl, int)
-    #     assert isinstance(code, str)
+        :param set_mbs: a membrane set object instance
+        :param m_type: string with the type of motif contained in the network
+        :param lbl: integer label
+        :param code: string code for membrane
+        :param dec: if not None (default) the membrane points are decimated according this factor
+        """
+        assert issubclass(type(set_mbs), SetMembranes)
+        assert isinstance(m_type, str)
+        assert isinstance(lbl, int)
+        assert isinstance(code, str)
 
-    #     poly_vtp = set_mbs.get_vtp()
-    #     if dec is not None:
-    #         poly_vtp = pp.poly_decimate(poly_vtp, dec)
+        poly_vtp = set_mbs.get_vtp()
+        if dec is not None:
+            poly_vtp = pp.poly_decimate(poly_vtp, dec)
 
-    #     n_points = poly_vtp.GetNumberOfPoints()
-    #     normals = poly_vtp.GetPointData().GetNormals()
-    #     for i in range(n_points):
-    #         x, y, z = poly_vtp.GetPoint(i)
-    #         q0, q1, q2 = normals.GetTuple(i)
-    #         self.__motifs.append(
-    #             list((m_type, lbl, code, i, [x, y, z], [q0, q1, q2, 0]))
-    #         )
+        n_points = poly_vtp.GetNumberOfPoints()
+        normals = poly_vtp.GetPointData().GetNormals()
+        for i in range(n_points):
+            x, y, z = poly_vtp.GetPoint(i)
+            q0, q1, q2 = normals.GetTuple(i)
+            self.__motifs.append(
+                list((m_type, lbl, code, i, [x, y, z], [q0, q1, q2, 0]))
+            )
 
     # TODO: provisional until set membranes is fixed
     def add_mbs(self, mb, lbl, code, dec=None):
@@ -134,7 +136,9 @@ class SynthTomo:
         for i in range(n_points):
             x, y, z = poly_vtp.GetPoint(i)
             q0, q1, q2 = normals.GetTuple(i)
-            self.__motifs.append(list((mb.get_type(), lbl, code, i, [x, y, z], [q0, q1, q2, 0])))
+            self.__motifs.append(
+                list((mb.get_type(), lbl, code, i, [x, y, z], [q0, q1, q2, 0]))
+            )
 
     def add_offset(self, offset: list) -> None:
         """

@@ -1,6 +1,4 @@
-"""
-Class for generating a membrane with Toroidal shape
-"""
+"""Class for generating a membrane with ellipsoidal shape"""
 
 import numpy as np
 import scipy as sp
@@ -13,60 +11,83 @@ from polnet.utils.poly import iso_surface, add_sfield_to_poly, poly_threshold
 
 
 class MbEllipsoid(Mb):
-    """
-    Constructor
-
-    :param tomo_shape: reference tomogram shape (X, Y and Z dimensions)
-    :param v_size: reference tomogram voxel size (default 1)
-    :param center: ellipsoid center (VERY IMPORTANT: coordinates are not in voxels)
-    :param rot_q: rotation expressed as quaternion with respect ellipsoid center (default [1, 0, 0, 0] no rotation)
-    :param thick: membrane thickness (default 1)
-    :param layer_s: Gaussian sigma for each layer
-    :param a: (default 1) semi axis length in X axis (before rotation)
-    :param b: (default 1) semi axis length in Y axis (before rotation)
-    :param c: (default 1) semi axis length in Z axis (before rotation)
-    """
-
-    # assert hasattr(center, "__len__") and (len(center) == 3)
-    # assert hasattr(rot_q, "__len__") and (len(rot_q) == 4)
-    # self.__tomo_shape, self.__v_size = tomo_shape, v_size
-    # self.__center, self.__rot_q = np.asarray(
-    #     center, dtype=float
-    # ), np.asarray(rot_q, dtype=float)
+    """Class for generating a membrane with Ellipsoidal shape"""
 
     def __init__(
         self,
-        tomo_shape,
-        v_size=1,
-        center=(0, 0, 0),
-        rot_q=(1, 0, 0, 0),
-        thick=1,
-        layer_s=1,
-        a=1,
-        b=1,
-        c=1,
-    ):
+        tomo_shape: tuple,
+        v_size: float = 1,
+        thick: float = 1,
+        layer_s: float = 1,
+        center: tuple[float, float, float] = (0, 0, 0),
+        rot_q: tuple[float, float, float, float] = (1, 0, 0, 0),
+        a: float = 1,
+        b: float = 1,
+        c: float = 1,
+    ) -> None:
         """
         Constructor
 
-        :param tomo_shape: reference tomogram shape (X, Y and Z dimensions)
-        :param v_size: reference tomogram voxel size (default 1)
-        :param center: ellipsoid center (VERY IMPORTANT: coordinates are not in voxels)
-        :param rot_q: rotation expressed as quaternion with respect ellipsoid center (default [1, 0, 0, 0] no rotation)
-        :param thick: membrane thickness (default 1)
-        :param layer_s: Gaussian sigma for each layer
-        :param a: (default 1) semi axis length in X axis (before rotation)
-        :param b: (default 1) semi axis length in Y axis (before rotation)
-        :param c: (default 1) semi axis length in Z axis (before rotation)
+        Args:
+            tomo_shape (tuple): reference tomogram shape (X, Y and Z dimensions)
+            v_size (float, optional): reference tomogram voxel size in angstroms. Defaults to 1.
+            thick (float, optional): membrane thickness in angstroms. Defaults to 1.
+            layer_s (float, optional): Gaussian sigma for each layer in angstroms. Defaults to 1.
+            center (tuple, optional): center of the ellipsoid in angstroms. Defaults to (0, 0, 0).
+            rot_q (tuple, optional): rotation quaternion defining the ellipsoid orientation. Defaults to (1, 0, 0, 0).
+            a (float, optional): semi-axis a of the ellipsoid in angstroms. Defaults to 1.
+            b (float, optional): semi-axis b of the ellipsoid in angstroms. Defaults to 1.
+            c (float, optional): semi-axis c of the ellipsoid in angstroms. Defaults to 1.
+
+        Raises:
+            TypeError: if 'tomo_shape' is not a tuple of three integers
+            ValueError: if any dimension of 'tomo_shape' is not an integer
+            ValueError: if 'v_size' or 'thick' are not positive floats or 'layer_s' is negative
+            TypeError: if 'center' is not a tuple of three floats
+            ValueError: if any dimension of 'center' is not a float
+            TypeError: if 'rot_q' is not a tuple of four floats
+            ValueError: if any dimension of 'rot_q' is not a float
+            TypeError: if 'a', 'b' or 'c' are not floats
+            ValueError: if 'a', 'b' or 'c' are not positive
+
+        Returns:
+            None
         """
-        super(MbEllipsoid, self).__init__(
-            tomo_shape, v_size, center, rot_q, thick, layer_s
-        )
-        assert (a > 0) and (b > 0) and (c > 0)
+        super(MbEllipsoid, self).__init__(tomo_shape, v_size, thick, layer_s)
+
+        if not hasattr(center, "__len__") or (len(center) != 3):
+            raise TypeError(
+                "center must be a tuple of three floats (X, Y and Z)"
+            )
+        if not all(isinstance(c, (int, float)) for c in center):
+            raise TypeError("All dimensions of center must be floats")
+        if not hasattr(rot_q, "__len__") or (len(rot_q) != 4):
+            raise TypeError(
+                "rot_q must be a tuple of four floats (w, x, y and z components)"
+            )
+        if not all(isinstance(r, (int, float)) for r in rot_q):
+            raise TypeError("All dimensions of rot_q must be floats")
+        if not isinstance(a, (int, float)):
+            raise TypeError("a must be a float")
+        if not isinstance(b, (int, float)):
+            raise TypeError("b must be a float")
+        if not isinstance(c, (int, float)):
+            raise TypeError("c must be a float")
+        if a <= 0 or b <= 0 or c <= 0:
+            raise ValueError("a, b and c must be positive")
+
         self.__a, self.__b, self.__c = float(a), float(b), float(c)
         self._Mb__build_tomos()
 
     def _Mb__build_tomos(self):
+        """Generates the tomogram, mask and surface of the ellipsoidal membrane
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
 
         # Input parsing
         t_v, s_v = (

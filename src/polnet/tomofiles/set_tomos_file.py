@@ -4,9 +4,9 @@ import csv
 
 from polnet.samplegeneration.synthetictomo import SynthTomo
 
+
 class SetTomos:
-    """Class for storing information for a set of simulated tomograms
-    """
+    """Class for storing information for a set of simulated tomograms"""
 
     def __init__(self) -> None:
         """Constructor

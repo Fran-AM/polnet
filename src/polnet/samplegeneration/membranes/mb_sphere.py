@@ -12,6 +12,7 @@ from polnet.utils.poly import iso_surface, add_sfield_to_poly, poly_threshold
 
 
 class MbSphere(Mb):
+    """Class for generating a membrane with Spherical shape"""
 
     def __init__(
         self,
@@ -46,19 +47,22 @@ class MbSphere(Mb):
         Returns:
             None
         """
-        super(MbSphere, self).__init__(
-            tomo_shape, v_size, thick, layer_s
-        )
+        super(MbSphere, self).__init__(tomo_shape, v_size, thick, layer_s)
 
         if not hasattr(center, "__len__") or (len(center) != 3):
-            raise TypeError("center must be a tuple of three floats (X, Y and Z)")
+            raise TypeError(
+                "center must be a tuple of three floats (X, Y and Z)"
+            )
         if not all(isinstance(c, (int, float)) for c in center):
             raise TypeError("All dimensions of center must be floats")
         if not isinstance(rad, (int, float)):
             raise TypeError("rad must be a float")
         if rad <= 0:
             raise ValueError("rad must be positive")
+
+        self.__center = np.array([float(c) for c in center])
         self.__rad = float(rad)
+        self.__rot_q = np.array([1, 0, 0, 0])  # No rotation TODO: remove
         self._Mb__build_tomos()
 
     def _Mb__build_tomos(self):
@@ -66,7 +70,7 @@ class MbSphere(Mb):
 
         Args:
             None
-        
+
         Returns:
             None
         """
@@ -83,7 +87,7 @@ class MbSphere(Mb):
         ao_v_m1 = ao_v - 1
         ai_v_p1 = ai_v + 1
         ai_v_m1 = ai_v - 1
-        p0_v = self._Mb__center / self._Mb__v_size
+        p0_v = self.__center / self._Mb__v_size
 
         # Generating the bilayer
         dx, dy, dz = (
@@ -119,9 +123,11 @@ class MbSphere(Mb):
             + ((Y - p0_v[1]) / ai_v) ** 2
             + ((Z - p0_v[2]) / ai_v) ** 2
         )
-        self._Mb__mask = tomo_rotate(
-            np.logical_and(R_i >= 1, R_o <= 1), self._Mb__rot_q, order=0
-        )
+
+        self._Mb__mask = np.logical_and(R_i >= 1, R_o <= 1)
+        # self._Mb__mask = tomo_rotate(
+        #     np.logical_and(R_i >= 1, R_o <= 1), self.__rot_q, order=0
+        # )
 
         # Surface generation
         R_i = (
@@ -129,7 +135,7 @@ class MbSphere(Mb):
             + ((Y - p0_v[1]) / rad_v) ** 2
             + ((Z - p0_v[2]) / rad_v) ** 2
         )
-        R_i = tomo_rotate(R_i, self._Mb__rot_q, mode="reflect")
+        # R_i = tomo_rotate(R_i, self.__rot_q, mode="reflect")
         self._Mb__surf = iso_surface(R_i, 1)
         add_sfield_to_poly(
             self._Mb__surf,
@@ -154,11 +160,12 @@ class MbSphere(Mb):
             + ((Y - p0_v[1]) / ao_v_m1) ** 2
             + ((Z - p0_v[2]) / ao_v_m1) ** 2
         )
-        G = tomo_rotate(
-            np.logical_and(R_i >= 1, R_o <= 1), self._Mb__rot_q, order=0
-        )
+        G = np.logical_and(R_i >= 1, R_o <= 1)
+        # G = tomo_rotate(
+        #     np.logical_and(R_i >= 1, R_o <= 1), self.__rot_q, order=0
+        # )
         # R = (X - p0_v[0])**2 + (Y - p0_v[1])**2 + (Z - p0_v[2])**2
-        # G = tomo_rotate(np.logical_and(R >= ao_v_m1**2, R <= ao_v_p1**2), self._Mb__rot_q, order=0)
+        # G = tomo_rotate(np.logical_and(R >= ao_v_m1**2, R <= ao_v_p1**2), self.__rot_q, order=0)
 
         # Inner layer
         R_o = (
@@ -171,9 +178,10 @@ class MbSphere(Mb):
             + ((Y - p0_v[1]) / ai_v_m1) ** 2
             + ((Z - p0_v[2]) / ai_v_m1) ** 2
         )
-        G += tomo_rotate(
-            np.logical_and(R_i >= 1, R_o <= 1), self._Mb__rot_q, order=0
-        )
+        G += np.logical_and(R_i >= 1, R_o <= 1)
+        # G += tomo_rotate(
+        #     np.logical_and(R_i >= 1, R_o <= 1), self.__rot_q, order=0
+        # )
         # G += tomo_rotate(np.logical_and(R >= ai_v_m1**2, R_o <= ai_v_p1**2), self._Mb__rot_q, order=0)
 
         # Smoothing

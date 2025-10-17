@@ -53,6 +53,8 @@ class Mb(ABC):
         if layer_s < 0:
             raise ValueError("layer_s must be a non negative float")
 
+        self.__tomo_shape = tomo_shape
+        self.__v_size = float(v_size)
         self.__thick, self.__layer_s = float(thick), float(layer_s)
         self.__tomo, self.__mask, self.__surf = None, None, None
 

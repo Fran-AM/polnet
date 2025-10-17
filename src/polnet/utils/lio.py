@@ -5,6 +5,11 @@ I/O functions
 
 __author__ = "Antonio Martinez-Sanchez"
 
+import os
+import errno
+import stat
+import shutil
+
 import vtk
 import csv
 import mrcfile
@@ -170,15 +175,14 @@ def write_table(table, out_file):
     """
     with open(out_file, "w", newline="") as csv_file:
         fieldnames = list(table.keys())
-        writer = csv.DictWriter(
-            csv_file, fieldnames=fieldnames, delimiter="\t"
-        )
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames, delimiter="\t")
         writer.writeheader()
         for row in range(len(table[fieldnames[0]])):
             dic_row = dict().fromkeys(fieldnames)
             for key in fieldnames:
                 dic_row[key] = table[key][row]
             writer.writerow(dic_row)
+
 
 def clean_dir(dir):
     """

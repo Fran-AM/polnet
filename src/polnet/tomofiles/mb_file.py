@@ -1,5 +1,6 @@
 """Module for managing membrane configuration files"""
 
+
 class MbFile:
     """
     For handling membrane configuration files
