@@ -1,5 +1,8 @@
 """Module for managing membrane configuration files"""
 
+import ast
+from os import path
+
 
 class MbFile:
     """
@@ -44,7 +47,35 @@ class MbFile:
     def get_den_cf_rg(self):
         return self.__den_cf_rg
 
-    def load_mb_file(self, in_file):
+    def load_mb_file(self, in_file: str) -> None:
+        """
+        Load membrane parameters from an input file
+
+        Args:
+            in_file (str): path to the input file with extension .mbs
+        """
+        assert isinstance(in_file, str) and in_file.endswith(".mbs")
+        params = {}
+        with open(in_file, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "#" in line:
+                    line = line.split("#")[
+                        0
+                    ].strip()  # elimina comentarios al final
+                if "=" in line:
+                    key, value = [part.strip() for part in line.split("=", 1)]
+                    try:
+                        params[key] = ast.literal_eval(value)
+                    except (ValueError, SyntaxError):
+                        params[key] = (
+                            value  # dejar como string si no se puede evaluar
+                        )
+        return params
+
+    def load_mb_file_depr(self, in_file):
         """
         Load protein parameters from an input file
 

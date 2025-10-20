@@ -7,10 +7,11 @@ import random
 import numpy as np
 
 from polnet.utils import poly as pp
-from polnet.utils import lio 
+from polnet.utils import lio
 from polnet.samplegeneration.synthetictomo.synth_tomo import SynthTomo
 from polnet.samplegeneration.membranes.set_membranes import SetMembranes
 from polnet.tomofiles.mb_file import MbFile
+from polnet.samplegeneration.membranes.membrane_factory import MembraneFactory
 
 # Common tomogram settings
 # ROOT_PATH should point to the 'data' folder
@@ -26,7 +27,7 @@ VOI_OFFS = (
     (4, VOI_SHAPE[1] - 4),
     (4, VOI_SHAPE[2] - 4),
 )
-VOI_VSIZE = 10 # A/vx
+VOI_VSIZE = 10  # A/vx
 MMER_TRIES = 50
 PMER_TRIES = 10
 
@@ -165,67 +166,80 @@ for tomod_id in range(NTOMOS):
 
         # Loading the membrane file
         memb = MbFile()
-        memb.load_mb_file(ROOT_PATH + "/" + p_file)
+        file_path = os.path.join(ROOT_PATH, p_file)
+        params = memb.load_mb_file(file_path)
 
-        # Generating the occupancy
-        hold_occ = memb.get_occ()
-        if hasattr(hold_occ, "__len__"):
-            # hold_occ random number generation between the two values
-            hold_occ = np.random.uniform(hold_occ[0], hold_occ[1])
-            #hold_occ = TODO: OccGen(hold_occ).gen_occupancy()
+        # Obtaining membrane generator from factory
+        mb_type = params["MB_TYPE"]
+        memb = MembraneFactory.create(mb_type, params)
 
-        # Membrane random generation by type
-        hold_max_rad = memb.get_max_rad()
-        if hold_max_rad is None:
-            hold_max_rad = math.sqrt(3) * max(VOI_SHAPE) * VOI_VSIZE
-        param_rg = (
-            memb.get_min_rad(),
-            hold_max_rad,
-            memb.get_max_ecc(),
+        # Creating the set of membranes
+        set_mbs = SetMembranes(
+            voi,
+            VOI_VSIZE,
+            memb,
+            bg_voi=bg_voi,
         )
-        if memb.get_type() == "sphere":
-            #mb_sph_generator = SphGen(radius_rg=(param_rg[0], param_rg[1]))
-            set_mbs = SetMembranes(
-                voi,
-                VOI_VSIZE,
-                #mb_sph_generator,
-                None,
-                param_rg,
-                memb.get_thick_rg(),
-                memb.get_layer_s_rg(),
-                hold_occ,
-                memb.get_over_tol(),
-                bg_voi=bg_voi,
-            )
-            set_mbs.build_set(verbosity=True)
-            hold_den = set_mbs.get_tomo()
-            if memb.get_den_cf_rg() is not None:
-                hold_den *= random.uniform(
-                    memb.get_den_cf_rg()[0], memb.get_den_cf_rg()[1]
-                )
-        else:
-            print("ERROR: Membrane type", memb.get_type(), "not recognized!")
-            sys.exit()
 
-        # Density tomogram updating
-        voi = set_mbs.get_voi()
-        mb_mask = set_mbs.get_tomo() > 0
-        mb_mask[voi_inital_invert] = False
-        tomo_lbls[mb_mask] = entity_id
-        count_mbs += set_mbs.get_num_mbs()
-        mb_voxels += (tomo_lbls == entity_id).sum()
-        tomo_den = np.maximum(tomo_den, hold_den)
-        hold_vtp = set_mbs.get_vtp()
-        pp.add_label_to_poly(hold_vtp, entity_id, "Entity", mode="both")
-        pp.add_label_to_poly(hold_vtp, LBL_MB, "Type", mode="both")
-        if poly_vtp is None:
-            poly_vtp = hold_vtp
-            skel_vtp = hold_vtp
-        else:
-            poly_vtp = pp.merge_polys(poly_vtp, hold_vtp)
-            skel_vtp = pp.merge_polys(skel_vtp, hold_vtp)
-        synth_tomo.add_set_mbs(set_mbs, "Membrane", entity_id, memb.get_type())
-    entity_id += 1
+    #     # Generating the occupancy
+    #     hold_occ = memb.get_occ()
+    #     if hasattr(hold_occ, "__len__"):
+    #         # hold_occ random number generation between the two values
+    #         hold_occ = np.random.uniform(hold_occ[0], hold_occ[1])
+    #         #hold_occ = TODO: OccGen(hold_occ).gen_occupancy()
 
-    write_mrc_path = TOMOS_DIR + "/tomo_" + str(tomod_id) + "_den.mrc"
-    lio.write_mrc(tomo_den, write_mrc_path, v_size=VOI_VSIZE, dtype=np.float32)
+    #     # Membrane random generation by type
+    #     hold_max_rad = memb.get_max_rad()
+    #     if hold_max_rad is None:
+    #         hold_max_rad = math.sqrt(3) * max(VOI_SHAPE) * VOI_VSIZE
+    #     param_rg = (
+    #         memb.get_min_rad(),
+    #         hold_max_rad,
+    #         memb.get_max_ecc(),
+    #     )
+    #     if memb.get_type() == "sphere":
+    #         #mb_sph_generator = SphGen(radius_rg=(param_rg[0], param_rg[1]))
+    #         set_mbs = SetMembranes(
+    #             voi,
+    #             VOI_VSIZE,
+    #             #mb_sph_generator,
+    #             None,
+    #             param_rg,
+    #             memb.get_thick_rg(),
+    #             memb.get_layer_s_rg(),
+    #             hold_occ,
+    #             memb.get_over_tol(),
+    #             bg_voi=bg_voi,
+    #         )
+    #         set_mbs.build_set(verbosity=True)
+    #         hold_den = set_mbs.get_tomo()
+    #         if memb.get_den_cf_rg() is not None:
+    #             hold_den *= random.uniform(
+    #                 memb.get_den_cf_rg()[0], memb.get_den_cf_rg()[1]
+    #             )
+    #     else:
+    #         print("ERROR: Membrane type", memb.get_type(), "not recognized!")
+    #         sys.exit()
+
+    #     # Density tomogram updating
+    #     voi = set_mbs.get_voi()
+    #     mb_mask = set_mbs.get_tomo() > 0
+    #     mb_mask[voi_inital_invert] = False
+    #     tomo_lbls[mb_mask] = entity_id
+    #     count_mbs += set_mbs.get_num_mbs()
+    #     mb_voxels += (tomo_lbls == entity_id).sum()
+    #     tomo_den = np.maximum(tomo_den, hold_den)
+    #     hold_vtp = set_mbs.get_vtp()
+    #     pp.add_label_to_poly(hold_vtp, entity_id, "Entity", mode="both")
+    #     pp.add_label_to_poly(hold_vtp, LBL_MB, "Type", mode="both")
+    #     if poly_vtp is None:
+    #         poly_vtp = hold_vtp
+    #         skel_vtp = hold_vtp
+    #     else:
+    #         poly_vtp = pp.merge_polys(poly_vtp, hold_vtp)
+    #         skel_vtp = pp.merge_polys(skel_vtp, hold_vtp)
+    #     synth_tomo.add_set_mbs(set_mbs, "Membrane", entity_id, memb.get_type())
+    # entity_id += 1
+
+    # write_mrc_path = TOMOS_DIR + "/tomo_" + str(tomod_id) + "_den.mrc"
+    # lio.write_mrc(tomo_den, write_mrc_path, v_size=VOI_VSIZE, dtype=np.float32)

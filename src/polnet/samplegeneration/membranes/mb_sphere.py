@@ -190,3 +190,6 @@ class MbSphere(Mb):
         self._Mb__tomo = lin_map(
             -1 * sp.ndimage.gaussian_filter(G.astype(float), s_v), ub=0, lb=1
         )
+
+    def __str__(self):
+        return f"Membrane(Sphere), thickness={self._Mb__thick} Å, layer sigma={self._Mb__layer_s} Å, center={self.__center}, radius={self.__rad} Å"
