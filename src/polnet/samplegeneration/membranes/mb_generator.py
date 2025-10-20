@@ -2,8 +2,9 @@ import random
 
 from abc import ABC, abstractmethod
 
+from polnet.samplegeneration.membranes.mb import Mb
 
-class MemGen(ABC):
+class MbGen(ABC):
     """
     Abstract class for generating membrane surfaces with random parameters
     """
@@ -50,9 +51,24 @@ class MemGen(ABC):
         """
         return self.__over_tol
 
+    @classmethod
     @abstractmethod
-    def generate(self):
+    def from_params(cls, params: dict):
+        """
+        Creates a membrane generator object from a dictionary of parameters
+        """
+        raise NotImplemented
+
+    @abstractmethod
+    def generate(voi_shape: tuple[int, int, int], v_size: float) -> Mb:
         """
         Generates a membrane with random parameters
+
+        Args:
+            voi_shape (tuple[int, int, int]): shape of the volume of interest
+            v_size (float): voxel size in angstroms 
+
+        Returns:
+            Mb: generated membrane object
         """
         raise NotImplemented

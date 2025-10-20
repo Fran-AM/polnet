@@ -4,6 +4,7 @@ import math
 import numpy as np
 
 PI_2 = math.pi * 2
+MAX_TRIES_EXP = int(1e6)
 
 
 def gen_rand_unit_quaternion():
@@ -23,3 +24,23 @@ def gen_rand_unit_quaternion():
     y = math.cos(theta_1) * sigma_1
     z = math.sin(theta_2) * sigma_2
     return np.asarray((w, x, y, z))
+
+def gen_bounded_exp(mean, lb, ub):
+    """
+    Generates a random number following a 'bounded exponential distribution'
+    Get random exponential numbers until falls into bounded range
+
+    :param mean: mean for the exponential distribution (1/lambda)
+    :param lb: lower bound
+    :param hb: higher bound
+    :return: a real number within the range, raises RuntimeError if no number found within range after MAX_TRIES_EXP
+    """
+    hold = np.random.exponential(scale=mean)
+    count = 1
+    while ((hold < lb) or (hold > ub)) and (count < MAX_TRIES_EXP):
+        hold = np.random.exponential(scale=mean)
+        count += 1
+    if count >= MAX_TRIES_EXP:
+        raise RuntimeError
+    else:
+        return hold

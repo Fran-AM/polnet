@@ -518,7 +518,9 @@ def rot_to_quat(rot):
     """
     r = spR.from_matrix(rot)
     hold_q = r.as_quat()
-    return np.asarray((hold_q[3], hold_q[0], hold_q[1], hold_q[2]), dtype=float)
+    return np.asarray(
+        (hold_q[3], hold_q[0], hold_q[1], hold_q[2]), dtype=float
+    )
 
 
 def tomo_shift(tomo, shift):

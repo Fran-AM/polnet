@@ -175,7 +175,9 @@ def write_table(table, out_file):
     """
     with open(out_file, "w", newline="") as csv_file:
         fieldnames = list(table.keys())
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames, delimiter="\t")
+        writer = csv.DictWriter(
+            csv_file, fieldnames=fieldnames, delimiter="\t"
+        )
         writer.writeheader()
         for row in range(len(table[fieldnames[0]])):
             dic_row = dict().fromkeys(fieldnames)

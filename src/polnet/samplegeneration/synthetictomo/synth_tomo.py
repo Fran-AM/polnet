@@ -1,7 +1,7 @@
 """Module for managing a synthetic tomogram"""
 
 from polnet.samplegeneration.membranes.mb import Mb
-from polnet.samplegeneration.membranes.set_membranes import SetMembranes
+from polnet.samplegeneration.membranes.mb_set import SetMembranes
 import polnet.utils.poly as pp
 
 
@@ -99,7 +99,7 @@ class SynthTomo:
         assert isinstance(lbl, int)
         assert isinstance(code, str)
 
-        poly_vtp = set_mbs.get_vtp()
+        poly_vtp = set_mbs.vtp
         if dec is not None:
             poly_vtp = pp.poly_decimate(poly_vtp, dec)
 

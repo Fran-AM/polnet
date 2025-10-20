@@ -1,4 +1,4 @@
-"""Module to define abstract membrane class"""
+"""Module to define abstract membrane class and a custom membrane error exception"""
 
 from abc import ABC, abstractmethod
 
@@ -12,6 +12,7 @@ from polnet.utils.tomo_utils import insert_svol_tomo
 
 class Mb(ABC):
     """Abstract class to model membranes with different geometries
+
     A membrane is modelled as two parallel surfaces with Gaussian profile
     """
 
@@ -154,7 +155,7 @@ class Mb(ABC):
         """Insert a membrane into a tomogram
 
         Args:
-            tomo: tomogram where m_svol is added
+            tomo: tomogram where the membrane is added
             merge: merging mode, valid: 'min' (default), 'max', 'sum' and 'insert'
             mode: determines which data are inserted, valid: 'tomo' (default), 'mask' and 'voi'
             grow: number of voxel to grow the membrane tomogram to insert (default 0), only used in 'voi' mode
@@ -210,3 +211,14 @@ class Mb(ABC):
             NotImplementedError: if the subclass does not implement this method
         """
         raise NotImplementedError("Mb subclasses must implement this method")
+
+
+class MbError(Exception):
+    """Custom exception for membrane-related errors.
+
+    Attributes:
+        message (str): Description of the error.
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)

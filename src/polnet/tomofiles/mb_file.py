@@ -1,8 +1,8 @@
 """Module for managing membrane configuration files"""
 
 import ast
+import random
 from os import path
-
 
 class MbFile:
     """
@@ -10,15 +10,27 @@ class MbFile:
     """
 
     def __init__(self):
-        self.__type = None
-        self.__occ = None
-        self.__thick_rg = None
-        self.__layer_s_rg = None
-        self.__max_ecc = None
-        self.__over_tol = None
-        self.__min_rad = None
-        self.__max_rad = None
-        self.__den_cf_rg = None
+        # self.__type = None
+        # self.__occ = None
+        # self.__thick_rg = None
+        # self.__layer_s_rg = None
+        # self.__max_ecc = None
+        # self.__over_tol = None
+        # self.__min_rad = None
+        # self.__max_rad = None
+        # self.__den_cf_rg = None
+        self.__params = {}
+
+    @property
+    def type(self):
+        return self.__params.get("MB_TYPE", None)
+    
+    @property
+    def den_cf(self):
+        den_cf_rg = self.__params.get("MB_DEN_CF_RG", None)
+        if den_cf_rg is not None:
+            return random.uniform(den_cf_rg[0], den_cf_rg[1])
+        return None
 
     def get_type(self):
         return self.__type
@@ -55,7 +67,6 @@ class MbFile:
             in_file (str): path to the input file with extension .mbs
         """
         assert isinstance(in_file, str) and in_file.endswith(".mbs")
-        params = {}
         with open(in_file, "r") as f:
             for line in f:
                 line = line.strip()
@@ -68,12 +79,12 @@ class MbFile:
                 if "=" in line:
                     key, value = [part.strip() for part in line.split("=", 1)]
                     try:
-                        params[key] = ast.literal_eval(value)
+                        self.__params[key] = ast.literal_eval(value)
                     except (ValueError, SyntaxError):
-                        params[key] = (
+                        self.__params[key] = (
                             value  # dejar como string si no se puede evaluar
                         )
-        return params
+        return self.__params.copy()
 
     def load_mb_file_depr(self, in_file):
         """
@@ -112,12 +123,20 @@ class MbFile:
                             ]
                             self.__occ = (float(value_0), float(value_1))
                     elif var == "MB_THICK_RG":
-                        value_0 = value[value.index("(") + 1 : value.index(",")]
-                        value_1 = value[value.index(",") + 1 : value.index(")")]
+                        value_0 = value[
+                            value.index("(") + 1 : value.index(",")
+                        ]
+                        value_1 = value[
+                            value.index(",") + 1 : value.index(")")
+                        ]
                         self.__thick_rg = (float(value_0), float(value_1))
                     elif var == "MB_LAYER_S_RG":
-                        value_0 = value[value.index("(") + 1 : value.index(",")]
-                        value_1 = value[value.index(",") + 1 : value.index(")")]
+                        value_0 = value[
+                            value.index("(") + 1 : value.index(",")
+                        ]
+                        value_1 = value[
+                            value.index(",") + 1 : value.index(")")
+                        ]
                         self.__layer_s_rg = (float(value_0), float(value_1))
                     elif var == "MB_MAX_ECC":
                         self.__max_ecc = float(value)
@@ -128,8 +147,12 @@ class MbFile:
                     elif var == "MB_MAX_RAD":
                         self.__max_rad = float(value)
                     elif var == "MB_DEN_CF_RG":
-                        value_0 = value[value.index("(") + 1 : value.index(",")]
-                        value_1 = value[value.index(",") + 1 : value.index(")")]
+                        value_0 = value[
+                            value.index("(") + 1 : value.index(",")
+                        ]
+                        value_1 = value[
+                            value.index(",") + 1 : value.index(")")
+                        ]
                         self.__den_cf_rg = (float(value_0), float(value_1))
                     else:
                         print(
