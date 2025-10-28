@@ -83,8 +83,8 @@ PMER_TRIES = 10
 # Lists with the features to simulate
 MEMBRANES_LIST = [
     "in_mbs/sphere.mbs",
-    "in_mbs/ellipse.mbs",
-    "in_mbs/toroid.mbs",
+    # "in_mbs/ellipse.mbs",
+    # "in_mbs/toroid.mbs",
 ]
 
 HELIX_LIST = [
