@@ -708,3 +708,21 @@ def poly_threshold(poly, p_name, mode="points", low_th=None, hi_th=None):
     surf_flt.Update()
 
     return surf_flt.GetOutput()
+
+
+def poly_scale(in_vtp, s):
+    """
+    Applies scaling transformation to a vtkPolyData
+
+    :param in_vtp: input vtkPolyData
+    :param s: scaling factor
+    :return: the transformed vtkPolyData
+    """
+    # Translation
+    box_sc = vtk.vtkTransform()
+    box_sc.Scale(s, s, s)
+    tr_box = vtk.vtkTransformPolyDataFilter()
+    tr_box.SetInputData(in_vtp)
+    tr_box.SetTransform(box_sc)
+    tr_box.Update()
+    return tr_box.GetOutput()

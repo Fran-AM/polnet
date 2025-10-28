@@ -5,6 +5,11 @@ I/O functions
 
 __author__ = "Antonio Martinez-Sanchez"
 
+import os
+import errno
+import stat
+import shutil
+
 import vtk
 import csv
 import mrcfile
@@ -179,6 +184,7 @@ def write_table(table, out_file):
             for key in fieldnames:
                 dic_row[key] = table[key][row]
             writer.writerow(dic_row)
+
 
 def clean_dir(dir):
     """

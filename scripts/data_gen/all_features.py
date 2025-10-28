@@ -65,10 +65,10 @@ from polnet.membrane import SetMembranes
 
 # Common tomogram settings
 ROOT_PATH = os.path.realpath(os.getcwd() + "/../../data")
-NTOMOS = 1
+NTOMOS = 10
 VOI_SHAPE = (
-    300,
-    300,
+    500,
+    500,
     250,
 )
 VOI_OFFS = (
@@ -88,43 +88,43 @@ MEMBRANES_LIST = [
 ]
 
 HELIX_LIST = [
-    "in_helix/mt.hns",
-    "in_helix/actin.hns"
+    # "in_helix/mt.hns",
+    # "in_helix/actin.hns"
     ]
 
 PROTEINS_LIST = [
-    "in_10A/4v4r_10A.pns",
-    "in_10A/3j9i_10A.pns",
-    "in_10A/4v4r_50S_10A.pns",
-    "in_10A/4v4r_30S_10A.pns",
-    "in_10A/6utj_10A.pns",
-    "in_10A/5mrc_10A.pns",
-    "in_10A/4v7r_10A.pns",
-    "in_10A/2uv8_10A.pns",
-    "in_10A/4v94_10A.pns",
-    "in_10A/4cr2_10A.pns",
-    "in_10A/3qm1_10A.pns",
-    "in_10A/3h84_10A.pns",
-    "in_10A/3gl1_10A.pns",
-    "in_10A/3d2f_10A.pns",
-    "in_10A/3cf3_10A.pns",
-    "in_10A/2cg9_10A.pns",
-    "in_10A/1u6g_10A.pns",
-    "in_10A/1s3x_10A.pns",
-    "in_10A/1qvr_10A.pns",
-    "in_10A/1bxn_10A.pns",
+    # "in_10A/4v4r_10A.pns",
+    # "in_10A/3j9i_10A.pns",
+    # "in_10A/4v4r_50S_10A.pns",
+    # "in_10A/4v4r_30S_10A.pns",
+    # "in_10A/6utj_10A.pns",
+    # "in_10A/5mrc_10A.pns",
+    # "in_10A/4v7r_10A.pns",
+    # "in_10A/2uv8_10A.pns",
+    # "in_10A/4v94_10A.pns",
+    # "in_10A/4cr2_10A.pns",
+    # "in_10A/3qm1_10A.pns",
+    # "in_10A/3h84_10A.pns",
+    # "in_10A/3gl1_10A.pns",
+    # "in_10A/3d2f_10A.pns",
+    # "in_10A/3cf3_10A.pns",
+    # "in_10A/2cg9_10A.pns",
+    # "in_10A/1u6g_10A.pns",
+    # "in_10A/1s3x_10A.pns",
+    # "in_10A/1qvr_10A.pns",
+    # "in_10A/1bxn_10A.pns",
 ]
 
 MB_PROTEINS_LIST = [
-    "in_10A/mb_6rd4_10A.pms",
-    "in_10A/mb_5wek_10A.pms",
-    "in_10A/mb_4pe5_10A.pms",
-    "in_10A/mb_5ide_10A.pms",
-    "in_10A/mb_5gjv_10A.pms",
-    "in_10A/mb_5kxi_10A.pms",
-    "in_10A/mb_5tj6_10A.pms",
-    "in_10A/mb_5tqq_10A.pms",
-    "in_10A/mb_5vai_10A.pms",
+    # "in_10A/mb_6rd4_10A.pms",
+    # "in_10A/mb_5wek_10A.pms",
+    # "in_10A/mb_4pe5_10A.pms",
+    # "in_10A/mb_5ide_10A.pms",
+    # "in_10A/mb_5gjv_10A.pms",
+    # "in_10A/mb_5kxi_10A.pms",
+    # "in_10A/mb_5tj6_10A.pms",
+    # "in_10A/mb_5tqq_10A.pms",
+    # "in_10A/mb_5vai_10A.pms",
 ]
 
 # Proportions list, specifies the proportion for each protein, this proportion is tried to be achieved but no guaranteed
