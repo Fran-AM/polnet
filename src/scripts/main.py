@@ -44,7 +44,7 @@ OUTPUT_LABELS = {
 
 # Directory paths
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
-OUTPUT_DIR = DATA_DIR / "outputs"
+OUTPUT_DIR = DATA_DIR / "data_generated" / "output"
 
 # Ensure output directory exists. DATA_DIR should exist already.
 if not DATA_DIR.exists():
