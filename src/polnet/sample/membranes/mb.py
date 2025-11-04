@@ -1,14 +1,14 @@
-"""Module to define abstract membrane class and a custom membrane error exception"""
+"""Module for membrane modeling classes.
+"""
 
 from abc import ABC, abstractmethod
+import random
 
 import numpy as np
-import scipy as sp
 import vtk
 
 from polnet.utils.poly import poly_mask
 from polnet.utils.tomo_utils import insert_svol_tomo
-
 
 class Mb(ABC):
     """Abstract class to model membranes with different geometries
@@ -25,7 +25,7 @@ class Mb(ABC):
     ) -> None:
         """Constructor
 
-        Defines the basic properties of a membrane, but does not generate it.
+        Defines the basic properties of a membrane.
 
         Args:
             voi_shape (tuple): reference volume of interest shape (X, Y and Z dimensions)
@@ -60,15 +60,6 @@ class Mb(ABC):
         self.__density, self.__mask, self.__surf = None, None, None
 
     @property
-    def v_size(self) -> float:
-        """Get voxel size
-
-        Returns:
-            float: voxel size in angstroms
-        """
-        return self.__v_size
-
-    @property
     def thick(self) -> float:
         """Get membrane thickness, bilayer gap
 
@@ -89,29 +80,50 @@ class Mb(ABC):
     @property
     def vol(self) -> float:
         """Get the polymer volume
+        Args:
+            None
+
+        Raises:
+            MbError: if membrane mask has not been generated yet
 
         Returns:
-            float: volume in cubic angstroms
+            float: surface mask volume in cubic angstroms
         """
+
+        if self.__mask is None:
+            raise MbError("Membrane mask has not been generated yet")
+
         return self.__mask.sum() * self.__v_size**3
 
     @property
     def density(self) -> np.ndarray:
         """Get the membrane density
 
+        Raises:
+            MbError: if membrane density has not been generated yet
+
         Returns:
             np.ndarray: a numpy 3D array representing the membrane density
         """
-        return self.__density
+        if self.__density is None:
+            raise MbError("Membrane density has not been generated yet")
+
+        return self.__density.copy()
 
     @property
     def mask(self) -> np.ndarray:
         """Get the membrane binary mask
 
+        Raises:
+            MbError: if membrane mask has not been generated yet
+
         Returns:
             np.ndarray: a binary numpy 3D array representing the membrane mask
         """
-        return self.__mask
+        if self.__mask is None:
+            raise MbError("Membrane mask has not been generated yet")
+
+        return self.__mask.copy()
 
     @property
     def vtp(self) -> vtk.vtkPolyData:
@@ -120,6 +132,10 @@ class Mb(ABC):
         Returns:
             vtk.vtkPolyData: the membrane surface
         """
+
+        if self.__surf is None:
+            raise MbError("Membrane surface has not been generated yet")
+
         return self.__surf
 
     def masking(self, mask: np.ndarray) -> None:
@@ -137,12 +153,12 @@ class Mb(ABC):
         """
         if not isinstance(mask, np.ndarray) or mask.dtype != bool:
             raise TypeError("mask must be a binary numpy ndarray")
-        if (len(mask.shape) != len(self.__tomo.shape)) or (
-            mask.shape != self.__tomo.shape
-        ):
+        if (len(mask.shape) != len(self.__voi_shape)) or (mask.shape != self.__voi_shape):
             raise ValueError(
                 "mask must have the same shape as the membrane volume of interest"
-            )  
+            ) 
+        if self.__density is None or self.__mask is None or self.__surf is None:
+            raise MbError("Membrane data has not been generated yet")
         self.__density[mask] = 0
         self.__mask[mask] = False
         self.__surf = poly_mask(self.__surf, mask)
@@ -199,17 +215,109 @@ class Mb(ABC):
             hold, tomo, 0.5 * np.asarray(self.__voi_shape), merge=merge
         )
 
+    def clear(self) -> None:
+        """Clears the membrane data (density, mask, surf). Call this method to reset the membrane state.
+
+        Returns:
+            None
+        """
+        self.__density = None
+        self.__mask = None
+        self.__surf = None
+
     @abstractmethod
     def __build(self) -> None:
         """Generates the membrane within a tomogram.
-
-        Must be called at the end of the constructor of each subclass.
 
         Raises:
             NotImplementedError: if the subclass does not implement this method
         """
         raise NotImplementedError("Mb subclasses must implement this method")
 
+class MbGen(ABC):
+    """
+    Abstract class for generating membranes with random parameters
+    """
+
+    def __init__(
+        self,
+        thick_rg: tuple[float, float],
+        layer_s_rg: tuple[float, float],
+        occ_rg: tuple[float, float],
+        over_tol: float,
+        mb_den_cf_rg: tuple[float, float],
+    ) -> None:
+        """
+        Constructor
+
+        Args:
+            thick_rg (tuple[float, float]): tuple with the min and max thickness values.
+            layer_s_rg (tuple[float, float]): tuple with the min and max layer sigma values.
+            occ_rg (tuple[float, float]): tuple with the min and max occupancy values.
+            over_tol (float): overlap tolerance for the membrane set.
+            mb_den_cf_rg (tuple[float, float]): tuple with the min and max membrane density contrast values.
+
+        Returns:
+            None
+        """
+
+        if thick_rg[0] <= 0 or thick_rg[1] <= 0:
+            raise ValueError("thick_rg values must be positive floats")
+        if thick_rg[0] > thick_rg[1]:
+            raise ValueError("thick_rg values must be in the form (min, max)")
+        if layer_s_rg[0] < 0 or layer_s_rg[1] < 0:
+            raise ValueError("layer_s_rg values must be non negative floats")
+        if layer_s_rg[0] > layer_s_rg[1]:
+            raise ValueError("layer_s_rg values must be in the form (min, max)")
+        if occ_rg[0] < 0 or occ_rg[1] < 0:
+            raise ValueError("occ_rg values must be non negative floats")
+        if occ_rg[0] > occ_rg[1]:
+            raise ValueError("occ_rg values must be in the form (min, max)")
+        if mb_den_cf_rg[0] < 0 or mb_den_cf_rg[1] < 0:
+            raise ValueError("mb_den_cf_rg values must be non negative floats")
+        if mb_den_cf_rg[0] > mb_den_cf_rg[1]:
+            raise ValueError("mb_den_cf_rg values must be in the form (min, max)")
+
+        self.__thick_rg = thick_rg
+        self.__layer_s_rg = layer_s_rg
+        self.__occ_rg = occ_rg
+        self.__over_tol = over_tol
+        self.__mb_den_cf_rg = mb_den_cf_rg
+
+    def rnd_occ(self) -> float:
+        """
+        Returns a random occupancy value within the defined range
+        """
+        return random.uniform(self.__occ_rg[0], self.__occ_rg[1])
+
+    @property
+    def over_tolerance(self) -> float:
+        """
+        Returns the overlap tolerance value 
+        """
+        return self.__over_tol
+
+    @classmethod
+    @abstractmethod
+    def from_params(cls, params: dict):
+        """
+        Creates a membrane generator object from a dictionary of parameters
+        """
+        raise NotImplemented
+
+    @abstractmethod
+    def generate(voi_shape: tuple[int, int, int], v_size: float) -> Mb:
+        """
+        Generates a membrane with random parameters
+
+        Args:
+            voi_shape (tuple[int, int, int]): shape of the volume of interest
+            v_size (float): voxel size in angstroms 
+
+        Returns:
+            Mb: generated membrane object
+        """
+        raise NotImplemented
 
 class MbError(Exception):
     """Custom exception for membrane-related errors.
@@ -220,3 +328,45 @@ class MbError(Exception):
 
     def __init__(self, message: str) -> None:
         super().__init__(message)
+
+class MbFactory:
+    """Factory class to create membrane generator instances based on type.
+    """
+
+    """Registry of membrane generator classes.
+    """
+    __registry = {}
+
+    @classmethod
+    def register(cls, name):
+        """Decorator to register a membrane generator class with a given name.
+        
+        Args:
+            name (str): The name to register the membrane generator class under.
+        
+        Returns:
+            function: The decorator function.
+        """
+
+        def inner(subclass):
+            cls.__registry[name] = subclass
+            return subclass
+        return inner
+
+    @classmethod
+    def create(cls, mb_type, params):
+        """Create an instance of a membrane generator based on the type and parameters.
+        
+        Args:
+            mb_type (str): The type of membrane generator to create.
+            params (dict): The parameters to initialize the membrane generator.
+        
+        Returns:
+            MbGen: An instance of the requested membrane generator.
+        """
+        if mb_type not in cls.__registry:
+            raise ValueError(f"Membrane type '{mb_type}' is not registered. Available types: {list(cls.__registry.keys())}")
+        return cls.__registry[mb_type].from_params(params)
+
+
+

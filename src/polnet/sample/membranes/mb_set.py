@@ -3,16 +3,11 @@ import sys
 import numpy as np
 import vtk
 
-from polnet.samplegeneration.membranes.mb import Mb, MbError
-from polnet.samplegeneration.membranes.mb_generator import MbGen
+from .mb import Mb, MbError, MbGen
 from polnet.utils.poly import poly_scale
 
-
-class SetMembranes:
+class MbSet:
     """Class for modelling a set of membranes (same kind) within a tomogram."""
-
-    #: Maximum number of tries to insert a membrane
-    MAX_TRIES_MB: int = 10
 
     def __init__(
         self,
@@ -20,6 +15,7 @@ class SetMembranes:
         v_size: float,
         gen_rnd_surfs: MbGen,
         bg_voi: np.ndarray = None,
+        max_mbtries: int = 10,
         grow: int = 0,
     ) -> None:
         """
@@ -35,6 +31,7 @@ class SetMembranes:
                              generated.
             bg_voi (np.ndarray, optional): Background VOI (Default None). If present, membrane areas in this VOI will be removed and
                                             not considered for overlapping. It must be binary with the same shape of voi.
+            max_mbtries (int, optional): Maximum number of tries to insert a membrane. Defaults to 10.
             grow (int, optional): Number of voxel to grow the VOI.
         """
         assert grow >= 0
@@ -54,6 +51,7 @@ class SetMembranes:
         )
         self.__count_mbs = 0
         self.__gen_rnd_surfs = gen_rnd_surfs
+        self.__max_mbtries = max_mbtries
         self.__grow = grow
 
     @property
@@ -185,7 +183,7 @@ class SetMembranes:
         # Initialization
         count_mb = 1
         count_exp = 0
-        max_occ = self.__gen_rnd_surfs.occ
+        max_occ = self.__gen_rnd_surfs.rnd_occ()
         over_tolerance = self.__gen_rnd_surfs.over_tolerance
 
         while self.mb_occupancy < max_occ:
@@ -205,9 +203,9 @@ class SetMembranes:
                 count_mb += 1
             except MbError:
                 count_exp += 1
-                if count_exp == self.MAX_TRIES_MB:
+                if count_exp == self.__max_mbtries:
                     print(
-                        f"WARNING: more than {self.MAX_TRIES_MB} tries failed to insert a membrane!",
+                        f"WARNING: more than {self.__max_mbtries} tries failed to insert a membrane!",
                         file=sys.stderr,
                     )
                     break

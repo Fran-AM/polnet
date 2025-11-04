@@ -1,12 +1,12 @@
 """This script serves as an alternative entry point for executing all feature extraction"""
 from pathlib import Path
 import random
-import sys
 import time
 
 import numpy as np
 
-from polnet import SyntheticSample
+from polnet import SyntheticSample, MbFile
+from polnet.utils import lio
 
 # Custom print function for consistent logging
 def log(message):
@@ -58,7 +58,43 @@ for tomo_id in range(N_TOMOS):
     hold_time = time.time()
 
     # Initialize a tomogram
-    tomo = SyntheticSample(tomo_id)
+    tomo = SyntheticSample(
+        id = tomo_id,
+        shape = VOI_SHAPE,
+        v_size = VOI_VSIZE,
+        offset = VOI_OFFS
+    )
+
+    # Generating membranes and adding them to the tomogram
+    for mb_file_rpath in MEMBRANES_LIST:
+        mb_file_apath = DATA_DIR / mb_file_rpath
+
+        mb_file = MbFile()
+        mb_params = mb_file.load(mb_file_apath)
+
+        log(f"Generating membranes of type {mb_file.type} from file: {mb_file_apath.name}")
+
+        tomo.add_set_membranes(
+            params=mb_params,
+            max_mbtries=10,
+            verbosity=True
+        )
+
+        log (f"Membranes of type {mb_file.type} added to tomogram {tomo_id}.")
+
+    log(f"Tomogram {tomo_id} generation time (s): {time.time() - hold_time:.2f}\n")
+
+    log(f"Saving tomogram {tomo_id} density and labels.")
+
+    write_mrc_path = OUTPUT_DIR / f"tomo_{tomo_id}_den.mrc"
+    lio.write_mrc(
+        tomo.density,
+        write_mrc_path,
+        v_size=VOI_VSIZE,
+        dtype=np.float32
+    )
+
+
 
 
 

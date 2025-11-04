@@ -1,3 +1,6 @@
-from .sample.sample import SyntheticSample
+from .sample import SyntheticSample, MbFile
 
-__all__ = ["SyntheticSample"]
+__all__ = [
+    "SyntheticSample",
+    "MbFile",
+]
