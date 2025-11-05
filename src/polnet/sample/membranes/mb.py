@@ -159,8 +159,8 @@ class Mb(ABC):
             ) 
         if self.__density is None or self.__mask is None or self.__surf is None:
             raise MbError("Membrane data has not been generated yet")
-        self.__density[mask] = 0
-        self.__mask[mask] = False
+        self.__density[~mask] = 0
+        self.__mask[~mask] = False
         self.__surf = poly_mask(self.__surf, mask)
 
     def insert_density_svol(
@@ -289,6 +289,12 @@ class MbGen(ABC):
         Returns a random occupancy value within the defined range
         """
         return random.uniform(self.__occ_rg[0], self.__occ_rg[1])
+    
+    def rnd_cf(self) -> float:
+        """
+        Returns a random membrane density contrast value within the defined range
+        """
+        return random.uniform(self.__mb_den_cf_rg[0], self.__mb_den_cf_rg[1])
 
     @property
     def over_tolerance(self) -> float:

@@ -7,14 +7,14 @@ import sys
 import numpy as np
 
 from .membranes import MbFactory, MbGen, MbSet
+from polnet.utils import poly as pp
 
 class SyntheticSample():
     """A model for a synthetic Cryo-ET sample.
     
     Attributes:
-        id (int): The sample ID.
         shape (tuple): The shape of the sample.
-        v_size (int): The voxel size of the sample in angstroms.
+        v_size (float): The voxel size of the sample in angstroms.
         offset (tuple): The offset for the sample.
         voi (np.ndarray): The volume of interest.
         voi_voxels (int): The number of voxels in the volume of interest.
@@ -29,7 +29,7 @@ class SyntheticSample():
     Methods:
 
     """
-    def __init__(self, id: int, shape: tuple, v_size: int, offset=(4, 4, 4)):
+    def __init__(self, shape: tuple, v_size: int, offset=(4, 4, 4)):
         """Constructor. 
         
         Args:
@@ -38,7 +38,6 @@ class SyntheticSample():
             v_size (int): The voxel size of the sample in angstroms.
             offset (tuple, optional): The offset for the sample. Defaults to (4, 4, 4).
         """
-        self.__id = id
         self.__shape = shape
         self.__v_size = v_size
         self.__offset = offset
@@ -49,8 +48,11 @@ class SyntheticSample():
         self.__density = None
         self.__poly_vtp = None
         self.__skel_vtp = None
+        self.__mbs_vtp = None
         self.__structure_counts = None
         self.__voxel_counts = None
+        self.__entity_id_counter = 1
+        self.__output_labels = None
         self.reset()
 
     def reset(self):
@@ -69,12 +71,17 @@ class SyntheticSample():
         self.__density = np.zeros(shape=self.__shape, dtype=np.float32)
         self.__poly_vtp = None
         self.__skel_vtp = None
+        self.__mbs_vtp = None
         self.__structure_counts = {
             'membrane': 0,
         }
         self.__voxel_counts = {
             'membrane': 0,
-        }  
+        }
+        self.__output_labels = {
+            'membrane': 1,
+        }
+        self.__entity_id_counter = 1
 
     @property
     def id(self) -> int:
@@ -89,9 +96,17 @@ class SyntheticSample():
         return self.__labels.copy()
     
     @property
-    def vtp(self) -> np.ndarray:
+    def poly_vtp(self) -> np.ndarray:
         return self.__poly_vtp
     
+    @property
+    def skel_vtp(self) -> np.ndarray:
+        return self.__skel_vtp
+    
+    @property
+    def v_size(self) -> float:
+        return self.__v_size
+
     def structure_count(self, type: str) -> int:
         """Get the structure count for a given type.
 
@@ -144,6 +159,28 @@ class SyntheticSample():
 
         set_mbs.build_set(verbosity=verbosity)
 
+        # Tomo update
+        self.__voi = set_mbs.voi
+        hold_den = set_mbs.density
+        hold_mask = set_mbs.mask
+        self.__density = np.maximum(self.__density, hold_den)
+        self.__labels[hold_mask] = self.__entity_id_counter
+        self.__structure_counts['membrane'] += set_mbs.num_mbs
+        self.__voxel_counts['membrane'] += (self.__labels == self.__entity_id_counter).sum()
+        hold_vtp = set_mbs.vtp
+        # Adding labels to polydata
+        pp.add_label_to_poly(hold_vtp, self.__entity_id_counter, "Entity", mode="both")
+        pp.add_label_to_poly(hold_vtp, self.__output_labels['membrane'], "Type", mode="both")
+        if self.__poly_vtp is None:
+            self.__poly_vtp = hold_vtp
+            self.__skel_vtp = hold_vtp
+            self.__mbs_vtp = hold_vtp
+        else:
+            self.__poly_vtp = pp.merge_polys(self.__poly_vtp, hold_vtp)
+            self.__skel_vtp = pp.merge_polys(self.__skel_vtp, hold_vtp)
+            self.__mbs_vtp = pp.merge_polys(self.__mbs_vtp, hold_vtp)
+        self.__entity_id_counter += 1
+        
         return None
 
         

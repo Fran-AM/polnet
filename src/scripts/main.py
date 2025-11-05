@@ -5,7 +5,7 @@ import time
 
 import numpy as np
 
-from polnet import SyntheticSample, MbFile
+from polnet import SyntheticSample, MbFile, SynthTomo
 from polnet.utils import lio
 
 # Custom print function for consistent logging
@@ -18,10 +18,10 @@ random.seed(42)
 np.random.seed(42)
 
 # Generation parameters
-N_TOMOS = 10
+N_TOMOS = 2
 VOI_SHAPE = (
-    300,
-    300,
+    500,
+    500,
     250,
 )
 VOI_OFFS = (
@@ -37,10 +37,45 @@ MEMBRANES_LIST = [
     "in_mbs/toroid.mbs",
 ]
 
-# Output labels
-OUTPUT_LABELS = {
-    "membranes": 1
-}
+HELIX_LIST = [
+    # "in_helix/mt.hns",
+    # "in_helix/actin.hns"
+    ]
+
+PROTEINS_LIST = [
+    # "in_10A/4v4r_10A.pns",
+    # "in_10A/3j9i_10A.pns",
+    # "in_10A/4v4r_50S_10A.pns",
+    # "in_10A/4v4r_30S_10A.pns",
+    # "in_10A/6utj_10A.pns",
+    # "in_10A/5mrc_10A.pns",
+    # "in_10A/4v7r_10A.pns",
+    # "in_10A/2uv8_10A.pns",
+    # "in_10A/4v94_10A.pns",
+    # "in_10A/4cr2_10A.pns",
+    # "in_10A/3qm1_10A.pns",
+    # "in_10A/3h84_10A.pns",
+    # "in_10A/3gl1_10A.pns",
+    # "in_10A/3d2f_10A.pns",
+    # "in_10A/3cf3_10A.pns",
+    # "in_10A/2cg9_10A.pns",
+    # "in_10A/1u6g_10A.pns",
+    # "in_10A/1s3x_10A.pns",
+    # "in_10A/1qvr_10A.pns",
+    # "in_10A/1bxn_10A.pns",
+]
+
+MB_PROTEINS_LIST = [
+    # "in_10A/mb_6rd4_10A.pms",
+    # "in_10A/mb_5wek_10A.pms",
+    # "in_10A/mb_4pe5_10A.pms",
+    # "in_10A/mb_5ide_10A.pms",
+    # "in_10A/mb_5gjv_10A.pms",
+    # "in_10A/mb_5kxi_10A.pms",
+    # "in_10A/mb_5tj6_10A.pms",
+    # "in_10A/mb_5tqq_10A.pms",
+    # "in_10A/mb_5vai_10A.pms",
+]
 
 # Directory paths
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
@@ -57,42 +92,26 @@ for tomo_id in range(N_TOMOS):
     log(f"Generating tomogram {tomo_id + 1}/{N_TOMOS}")
     hold_time = time.time()
 
-    # Initialize a tomogram
-    tomo = SyntheticSample(
-        id = tomo_id,
-        shape = VOI_SHAPE,
-        v_size = VOI_VSIZE,
-        offset = VOI_OFFS
+    synth_tomo = SynthTomo(
+        id=tomo_id + 1,
+        mbs_file_list=MEMBRANES_LIST,
+        hns_file_list=HELIX_LIST,
+        pns_file_list=PROTEINS_LIST,
+        pms_file_list=MB_PROTEINS_LIST,
+        output_folder=OUTPUT_DIR / f"Tomo{tomo_id + 1:03d}",
     )
 
-    # Generating membranes and adding them to the tomogram
-    for mb_file_rpath in MEMBRANES_LIST:
-        mb_file_apath = DATA_DIR / mb_file_rpath
-
-        mb_file = MbFile()
-        mb_params = mb_file.load(mb_file_apath)
-
-        log(f"Generating membranes of type {mb_file.type} from file: {mb_file_apath.name}")
-
-        tomo.add_set_membranes(
-            params=mb_params,
-            max_mbtries=10,
-            verbosity=True
-        )
-
-        log (f"Membranes of type {mb_file.type} added to tomogram {tomo_id}.")
-
-    log(f"Tomogram {tomo_id} generation time (s): {time.time() - hold_time:.2f}\n")
-
-    log(f"Saving tomogram {tomo_id} density and labels.")
-
-    write_mrc_path = OUTPUT_DIR / f"tomo_{tomo_id}_den.mrc"
-    lio.write_mrc(
-        tomo.density,
-        write_mrc_path,
+    synth_tomo.gen_sample(
+        data_path=DATA_DIR,
+        shape=VOI_SHAPE,
         v_size=VOI_VSIZE,
-        dtype=np.float32
+        offset=VOI_OFFS,
+        verbosity=True
     )
+
+    synth_tomo.save_tomo()
+
+
 
 
 
