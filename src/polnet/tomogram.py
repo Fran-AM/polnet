@@ -1,7 +1,9 @@
 import csv
 from pathlib import Path
+import sys
 
-from .sample import SyntheticSample, MbFile
+from .sample import SyntheticSample, MbFile, HnFile
+from .tem import TEM
 from .utils import lio
 
 class SynthTomo():
@@ -13,7 +15,6 @@ class SynthTomo():
         hns_file_list: list,
         pns_file_list: list,
         pms_file_list: list,
-        output_folder: Path,
     ):
         if not isinstance(mbs_file_list, list) or not all(isinstance(f, str) for f in mbs_file_list):
             raise TypeError("mbs_file_list must be a list of strings")
@@ -23,59 +24,13 @@ class SynthTomo():
             raise TypeError("pns_file_list must be a list of strings")
         if not isinstance(pms_file_list, list) or not all(isinstance(f, str) for f in pms_file_list):
             raise TypeError("pms_file_list must be a list of strings")
-        if not isinstance(output_folder, Path):
-            raise TypeError("output_folder must be a Path object")
+
         self.__id = id
         self.__mbs_files = mbs_file_list
         self.__hns_files = hns_file_list
         self.__pns_files = pns_file_list
         self.__pms_files = pms_file_list
-        self.__output_folder = output_folder
-        self.__output_folder.mkdir(parents=True, exist_ok=True)
         self.__sample = None
-        self.__save_labels_table()
-
-    def __save_labels_table(
-        self
-    ) -> None:
-        """Save the labels table to a CSV file.
-
-        Args:
-            out_file (Path): Path to the output CSV file.
-
-        Returns:
-            None
-        """
-        out_file = self.__output_folder / "labels_table.csv"
-        unit_lbl = 1
-        header_lbl_tab = ["MODEL", "LABEL"]
-        with open(out_file, "w") as file_csv:
-            writer_csv = csv.DictWriter(
-                file_csv, fieldnames=header_lbl_tab, delimiter="\t"
-            )
-            writer_csv.writeheader()
-            for fname in self.__mbs_files:
-                writer_csv.writerow(
-                    {header_lbl_tab[0]: fname, header_lbl_tab[1]: unit_lbl}
-                )
-                unit_lbl += 1
-            for fname in self.__hns_files:
-                writer_csv.writerow(
-                    {header_lbl_tab[0]: fname, header_lbl_tab[1]: unit_lbl}
-                )
-                unit_lbl += 1
-            for fname in self.__pns_files:
-                writer_csv.writerow(
-                    {header_lbl_tab[0]: fname, header_lbl_tab[1]: unit_lbl}
-                )
-                unit_lbl += 1
-            for fname in self.__pms_files:
-                writer_csv.writerow(
-                    {header_lbl_tab[0]: fname, header_lbl_tab[1]: unit_lbl}
-                )
-                unit_lbl += 1
-
-        return None
     
     def gen_sample(
         self,
@@ -116,40 +71,143 @@ class SynthTomo():
                 verbosity=verbosity
             )
 
+        for hn_file_rpath in self.__hns_files:
+            hn_file_apath = data_path / hn_file_rpath
+            hnFile = HnFile()
+            hn_params = hnFile.load(hn_file_apath)
+
+            self.__sample.add_helicoidal_network(
+                params=hn_params,
+                verbosity=verbosity
+            )
+
         # TODO: Add the rest of components
 
         return None
     
+    def tem(
+        self,
+        output_folder: Path,
+    ):# TODO fix
+        """Simulate TEM imaging of the synthetic sample.
+
+        Returns:
+            None
+        """
+        if output_folder is None or not isinstance(output_folder, Path):
+            raise TypeError("output_folder must be a Path object.")
+        output_folder.mkdir(parents=True, exist_ok=True)
+
+        if self.__sample is None:
+            raise RuntimeError("Sample has not been generated yet.")
+
+        temic = TEM()
+            
+        
+        return None
+    
     def save_tomo(
         self,
+        output_folder: Path,
     ) ->  None:
 
-        den_path = self.__output_folder / f"tomo_{self.__id:03d}_den.mrc"
+        if output_folder is None or not isinstance(output_folder, Path):
+            raise TypeError("output_folder must be a Path object.")
+        output_folder.mkdir(parents=True, exist_ok=True)
+
+        # Save labels table
+        self.__save_labels_table(output_folder)
+
+        # Save synthetic sample files
+        den_path = output_folder / f"tomo_{self.__id:03d}_den.mrc"
         lio.write_mrc(
             self.__sample.density,
             den_path,
             v_size=self.__sample.v_size,
         )
 
-        lbl_path = self.__output_folder / f"tomo_{self.__id:03d}_lbl.mrc"
+        lbl_path = output_folder / f"tomo_{self.__id:03d}_lbl.mrc"
         lio.write_mrc(
             self.__sample.labels,
             lbl_path,
             v_size=self.__sample.v_size,
         )
 
-        poly_den_path = self.__output_folder / f"tomo_{self.__id:03d}_poly_den.vtp"
-        lio.save_vtp(
-            self.__sample.poly_vtp,
-            poly_den_path,
-        )
+        if self.__sample.poly_vtp is not None:
+            poly_den_path = output_folder / f"tomo_{self.__id:03d}_poly_den.vtp"
+            lio.save_vtp(
+                self.__sample.poly_vtp,
+                poly_den_path,
+            )
+        else:
+            print("Warning: No poly_vtp data to save.", file=sys.stderr)
 
-        poly_skel_path = self.__output_folder / f"tomo_{self.__id:03d}_poly_skel.vtp"
-        lio.save_vtp(
-            self.__sample.skel_vtp,
-            poly_skel_path,
-        )
+        if self.__sample.skel_vtp is not None:
+            poly_skel_path = output_folder / f"tomo_{self.__id:03d}_poly_skel.vtp"
+            lio.save_vtp(
+                self.__sample.skel_vtp,
+                poly_skel_path,
+            )
+        else:
+            print("Warning: No skel_vtp data to save.", file=sys.stderr)
 
         # TODO: TEM simulation
 
         
+    def __save_labels_table(
+            self,
+            output_folder: Path,
+        ) -> None:
+            """Save the labels table to a CSV file.
+
+            Args:
+                out_file (Path): Path to the output CSV file.
+
+            Returns:
+                None
+            """
+            out_file = output_folder / "labels_table.csv"
+            unit_lbl = 1
+            header_lbl_tab = ["MODEL", "LABEL"]
+            with open(out_file, "w") as file_csv:
+                writer_csv = csv.DictWriter(
+                    file_csv, fieldnames=header_lbl_tab, delimiter="\t"
+                )
+                writer_csv.writeheader()
+                for fname in self.__mbs_files:
+                    writer_csv.writerow(
+                        {header_lbl_tab[0]: fname, header_lbl_tab[1]: unit_lbl}
+                    )
+                    unit_lbl += 1
+                for fname in self.__hns_files:
+                    writer_csv.writerow(
+                        {header_lbl_tab[0]: fname, header_lbl_tab[1]: unit_lbl}
+                    )
+                    unit_lbl += 1
+                for fname in self.__pns_files:
+                    writer_csv.writerow(
+                        {header_lbl_tab[0]: fname, header_lbl_tab[1]: unit_lbl}
+                    )
+                    unit_lbl += 1
+                for fname in self.__pms_files:
+                    writer_csv.writerow(
+                        {header_lbl_tab[0]: fname, header_lbl_tab[1]: unit_lbl}
+                    )
+                    unit_lbl += 1
+
+            return None
+
+    def print_summary(self) -> None:
+        """Print a summary of the synthetic sample.
+
+        Returns:
+            None
+        """
+        if self.__sample is None:
+            print("No sample generated yet.", file=sys.stderr)
+            return
+
+        print(f"Synthetic Tomo: {self.__id}")
+        self.__sample.print_summary()
+        
+        return None

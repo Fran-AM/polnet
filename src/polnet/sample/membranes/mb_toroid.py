@@ -10,7 +10,8 @@ import random
 import numpy as np
 import scipy as sp
 
-from .mb import Mb, MbFactory, MbGen, MbError
+from .mb import Mb, MbGen
+from .mb_factory import MbFactory
 from polnet.utils.affine import lin_map, tomo_rotate
 from polnet.utils.distribution import gen_rand_unit_quaternion, gen_bounded_exp 
 from polnet.utils.tomo_utils import density_norm

@@ -6,7 +6,8 @@ This module defines the SyntheticSample class, which models a synthetic Cryo-ET 
 import sys
 import numpy as np
 
-from .membranes import MbFactory, MbGen, MbSet
+from .membranes import MbFactory, MbSet
+from .filaments import HnFactory
 from polnet.utils import poly as pp
 
 class SyntheticSample():
@@ -72,14 +73,12 @@ class SyntheticSample():
         self.__poly_vtp = None
         self.__skel_vtp = None
         self.__mbs_vtp = None
-        self.__structure_counts = {
-            'membrane': 0,
-        }
-        self.__voxel_counts = {
-            'membrane': 0,
-        }
+        self.__structure_counts = {}
+        self.__voxel_counts = {}
         self.__output_labels = {
             'membrane': 1,
+            "actin": 2,
+            "microtubule": 3,
         }
         self.__entity_id_counter = 1
 
@@ -165,6 +164,9 @@ class SyntheticSample():
         hold_mask = set_mbs.mask
         self.__density = np.maximum(self.__density, hold_den)
         self.__labels[hold_mask] = self.__entity_id_counter
+        if 'membrane' not in self.__structure_counts:
+            self.__structure_counts['membrane'] = 0
+            self.__voxel_counts['membrane'] = 0
         self.__structure_counts['membrane'] += set_mbs.num_mbs
         self.__voxel_counts['membrane'] += (self.__labels == self.__entity_id_counter).sum()
         hold_vtp = set_mbs.vtp
@@ -182,6 +184,50 @@ class SyntheticSample():
         self.__entity_id_counter += 1
         
         return None
+    
+    def add_helicoidal_network(
+            self, 
+            params: dict, 
+            verbosity: bool = True
+        ) -> None:
+        """Generate and add a helicoidal network to the sample. Parameters for the helicoidal network generator class should be provided via the params dict.
+
+        Args:
+            params (dict): Parameters for the helicoidal network generator class. Should include 'type' key.
+            verbosity (bool, optional): Verbosity flag. Defaults to True.
+
+        Raises:
+            KeyError: if 'HN_TYPE' key is not in params.
+
+        Returns:
+            None
+        """
+
+        return None # TODO: Implement helicoidal network addition
+
+        if "HLIX_TYPE" not in params:
+            raise KeyError("params must include 'HN_TYPE' key specifying the helicoidal network type.")
+    
+        hn_type = params["HLIX_TYPE"]
+        hn_generator = HnFactory.create(hn_type, params)
+        
+        return None
+    
+    def print_summary(self) -> None:
+        """Prints a summary of the sample contents.
+
+        Returns:
+            None
+        """
+        print("Synthetic Sample Summary:")
+        print(f"  Shape: {self.__shape}")
+        print(f"  Voxel Size: {self.__v_size} Å")
+        print(f"  VOI Voxels: {self.__voi_voxels}")
+        print("  Structure Counts:")
+        for struct_type, count in self.__structure_counts.items():
+            print(f"    {struct_type}:")
+            print(f"      Count: {count}")
+            print(f"      Occupancy: {100.0* self.__voxel_counts.get(struct_type, 0) / self.__voi_voxels:.4f} %")
 
         
     

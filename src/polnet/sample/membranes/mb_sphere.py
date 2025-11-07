@@ -10,7 +10,8 @@ import random
 import numpy as np
 import scipy as sp
 
-from .mb import Mb, MbFactory, MbGen, MbError
+from .mb import Mb, MbGen
+from .mb_factory import MbFactory
 from polnet.utils.affine import lin_map
 from polnet.utils.poly import iso_surface, add_sfield_to_poly, poly_threshold
 

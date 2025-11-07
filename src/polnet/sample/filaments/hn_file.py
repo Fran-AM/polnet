@@ -1,31 +1,31 @@
-"""Module for managing membrane configuration files"""
+"""Module for handling helicoidal network configuration files."""
 
 import ast
 from pathlib import Path
 
-class MbFile:
+class HnFile:
     """
-    For handling membrane configuration files
-    """
+    For handling helicoidal network configuration files
+    """ 
 
     def __init__(self):
         self.__params = {}
 
     @property
     def type(self):
-        return self.__params.get("MB_TYPE", None)
+        return self.__params.get("HN_TYPE", None)
 
     def load(self, in_file: Path) -> None:
         """
-        Load membrane parameters from an input file
+        Load helicoidal network parameters from an input file
 
         Args:
-            in_file (Path): path to the input file with extension .mbs
+            in_file (Path): path to the input file with extension .hns
         """
-        if not in_file.suffix == ".mbs":
-            raise ValueError("Input file must have a .mbs extension.")
+        if not in_file.suffix == ".hns":
+            raise ValueError(f"Input file {in_file} does not have .hns extension.")
         if not in_file.exists():
-            raise FileNotFoundError(f"Membrane file {in_file} does not exist.") 
+            raise FileNotFoundError(f"Helical network file {in_file} does not exist.") 
         with open(in_file, "r") as f:
             for line in f:
                 line = line.strip()

@@ -1,0 +1,19 @@
+metadata:
+    version: "1.0"
+    author: "Juan Diego Gallego Nicolás"
+    date: "2025-11-06"
+folders:
+    root: null
+    input: "data"
+    output: "data/data_generated/all_features"
+global:
+    random_seed: 42
+    ntomos: 10
+sample:
+    voi_shape: [500, 500, 250]
+    voi_offset: [4, 4, 4]
+    vx_size: 10.0
+    membranes:
+        - "in_mbs/sphere.mbs"
+        - "in_mbs/ellipsoid.mbs"
+        - "in_mbs/toroid.mbs"

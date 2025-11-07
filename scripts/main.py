@@ -40,7 +40,7 @@ MEMBRANES_LIST = [
 HELIX_LIST = [
     # "in_helix/mt.hns",
     # "in_helix/actin.hns"
-    ]
+]
 
 PROTEINS_LIST = [
     # "in_10A/4v4r_10A.pns",
@@ -78,7 +78,7 @@ MB_PROTEINS_LIST = [
 ]
 
 # Directory paths
-DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 OUTPUT_DIR = DATA_DIR / "data_generated" / "output"
 
 # Ensure output directory exists. DATA_DIR should exist already.
@@ -98,7 +98,6 @@ for tomo_id in range(N_TOMOS):
         hns_file_list=HELIX_LIST,
         pns_file_list=PROTEINS_LIST,
         pms_file_list=MB_PROTEINS_LIST,
-        output_folder=OUTPUT_DIR / f"Tomo{tomo_id + 1:03d}",
     )
 
     synth_tomo.gen_sample(
@@ -109,7 +108,8 @@ for tomo_id in range(N_TOMOS):
         verbosity=True
     )
 
-    synth_tomo.save_tomo()
+    synth_tomo.save_tomo(output_folder=OUTPUT_DIR / f"Tomo{tomo_id + 1:03d}")
+    synth_tomo.print_summary()
 
 
 
