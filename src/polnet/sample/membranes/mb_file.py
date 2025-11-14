@@ -15,7 +15,7 @@ class MbFile:
     def type(self):
         return self.__params.get("MB_TYPE", None)
 
-    def load(self, in_file: Path) -> None:
+    def load(self, in_file: Path) -> dict:
         """
         Load membrane parameters from an input file
 

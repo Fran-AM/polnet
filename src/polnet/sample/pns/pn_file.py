@@ -1,31 +1,31 @@
-"""Module for handling helicoidal network configuration files."""
+"""Module for managing cytosolic proteins configuration files"""
 
 import ast
 from pathlib import Path
 
-class HnFile:
+class PnFile:
     """
-    For handling helicoidal network configuration files
-    """ 
+    For handling cytosolic proteins configuration files
+    """
 
     def __init__(self):
         self.__params = {}
 
     @property
     def type(self):
-        return self.__params.get("HN_TYPE", None)
+        return self.__params.get("MB_TYPE", None)
 
     def load(self, in_file: Path) -> None:
         """
-        Load helicoidal network parameters from an input file
+        Load protein parameters from an input file
 
         Args:
-            in_file (Path): path to the input file with extension .hns
+            in_file (Path): path to the input file with extension .pns
         """
-        if not in_file.suffix == ".hns":
-            raise ValueError(f"Input file {in_file} does not have .hns extension.")
+        if not in_file.suffix == ".pns":
+            raise ValueError("Input file must have a .pns extension.")
         if not in_file.exists():
-            raise FileNotFoundError(f"Helical network file {in_file} does not exist.") 
+            raise FileNotFoundError(f"Protein file {in_file} does not exist.") 
         with open(in_file, "r") as f:
             for line in f:
                 line = line.strip()

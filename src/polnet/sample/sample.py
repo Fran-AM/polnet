@@ -3,11 +3,14 @@
 This module defines the SyntheticSample class, which models a synthetic Cryo-ET sample. 
 """
 
+from pathlib import Path
 import sys
 import numpy as np
 
+
 from .membranes import MbFactory, MbSet
-from .filaments import HnFactory
+from .pns import PnGen, PnSet
+
 from polnet.utils import poly as pp
 
 class SyntheticSample():
@@ -79,6 +82,7 @@ class SyntheticSample():
             'membrane': 1,
             "actin": 2,
             "microtubule": 3,
+            "cprotein": 4
         }
         self.__entity_id_counter = 1
 
@@ -190,28 +194,38 @@ class SyntheticSample():
             params: dict, 
             verbosity: bool = True
         ) -> None:
-        """Generate and add a helicoidal network to the sample. Parameters for the helicoidal network generator class should be provided via the params dict.
+        # TODO: Implement method to add helicoidal networks
+        pass
 
-        Args:
-            params (dict): Parameters for the helicoidal network generator class. Should include 'type' key.
-            verbosity (bool, optional): Verbosity flag. Defaults to True.
-
-        Raises:
-            KeyError: if 'HN_TYPE' key is not in params.
-
-        Returns:
-            None
-        """
-
-        return None # TODO: Implement helicoidal network addition
-
-        if "HLIX_TYPE" not in params:
-            raise KeyError("params must include 'HN_TYPE' key specifying the helicoidal network type.")
-    
-        hn_type = params["HLIX_TYPE"]
-        hn_generator = HnFactory.create(hn_type, params)
+    def add_set_cproteins(
+            self, 
+            params: dict, 
+            data_path: Path,
+            surf_dec: float = 0.9,
+            verbosity: bool = True
+        ) -> None:
+        """Generate and add a set of cytosolic proteins to the sample. Parameters for the protein generator class should be provided via the params dict.
         
-        return None
+        Args:
+            params (dict): Parameters for the protein generator class. Should include 'type' key.
+            data_path (Path): Path to the data directory containing the model files.
+            surf_dec (float, optional): Surface decimation factor. Defaults to 0.9.
+            verbosity (bool, optional): Verbosity flag. Defaults to True.
+        """
+        pn_generator = PnGen.from_params(params, data_path=data_path, surf_dec=surf_dec)
+
+        set_pns = PnSet(
+            voi=self.__voi,
+            bg_voi=self.__bg_voi,
+            v_size=self.__v_size,
+            gen_rnd_cproteins=pn_generator,
+            surf_dec=surf_dec,
+            verbosity=verbosity
+        )
+
+        set_pns.build_set()
+
+        pass
     
     def print_summary(self) -> None:
         """Prints a summary of the sample contents.

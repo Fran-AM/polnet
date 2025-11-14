@@ -18,7 +18,7 @@ random.seed(42)
 np.random.seed(42)
 
 # Generation parameters
-N_TOMOS = 2
+N_TOMOS = 1
 VOI_SHAPE = (
     500,
     500,
@@ -32,9 +32,9 @@ VOI_OFFS = (
 VOI_VSIZE = 10  # A/vx
 
 MEMBRANES_LIST = [
-    "in_mbs/sphere.mbs",
-    "in_mbs/ellipse.mbs",
-    "in_mbs/toroid.mbs",
+    # "in_mbs/sphere.mbs",
+    # "in_mbs/ellipse.mbs",
+    # "in_mbs/toroid.mbs",
 ]
 
 HELIX_LIST = [
@@ -43,8 +43,8 @@ HELIX_LIST = [
 ]
 
 PROTEINS_LIST = [
-    # "in_10A/4v4r_10A.pns",
-    # "in_10A/3j9i_10A.pns",
+    "in_10A/4v4r_10A.pns",
+    "in_10A/3j9i_10A.pns",
     # "in_10A/4v4r_50S_10A.pns",
     # "in_10A/4v4r_30S_10A.pns",
     # "in_10A/6utj_10A.pns",
@@ -107,7 +107,7 @@ for tomo_id in range(N_TOMOS):
         offset=VOI_OFFS,
         verbosity=True
     )
-
+    
     synth_tomo.save_tomo(output_folder=OUTPUT_DIR / f"Tomo{tomo_id + 1:03d}")
     synth_tomo.print_summary()
 

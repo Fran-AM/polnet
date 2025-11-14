@@ -2,8 +2,7 @@ import csv
 from pathlib import Path
 import sys
 
-from .sample import SyntheticSample, MbFile, HnFile
-from .tem import TEM
+from .sample import SyntheticSample, MbFile, PnFile
 from .utils import lio
 
 class SynthTomo():
@@ -71,15 +70,18 @@ class SynthTomo():
                 verbosity=verbosity
             )
 
-        for hn_file_rpath in self.__hns_files:
-            hn_file_apath = data_path / hn_file_rpath
-            hnFile = HnFile()
-            hn_params = hnFile.load(hn_file_apath)
+        for pn_file_rpath in self.__pns_files:
+            pn_file_apath = data_path / pn_file_rpath
+            pn_file = PnFile()
+            pn_params = pn_file.load(pn_file_apath)
 
-            self.__sample.add_helicoidal_network(
-                params=hn_params,
+            self.__sample.add_set_cproteins(
+                params=pn_params,
+                data_path=data_path,
+                surf_dec=0.9,
                 verbosity=verbosity
             )
+
 
         # TODO: Add the rest of components
 
@@ -88,23 +90,28 @@ class SynthTomo():
     def tem(
         self,
         output_folder: Path,
-    ):# TODO fix
+        tilt_angles: list,
+    ):# TODO complete
         """Simulate TEM imaging of the synthetic sample.
 
         Returns:
             None
         """
-        if output_folder is None or not isinstance(output_folder, Path):
-            raise TypeError("output_folder must be a Path object.")
-        output_folder.mkdir(parents=True, exist_ok=True)
+        pass 
+        # if output_folder is None or not isinstance(output_folder, Path):
+        #     raise TypeError("output_folder must be a Path object.")
+        # output_folder.mkdir(parents=True, exist_ok=True)
 
-        if self.__sample is None:
-            raise RuntimeError("Sample has not been generated yet.")
+        # if self.__sample is None:
+        #     raise RuntimeError("Sample has not been generated yet.")
 
-        temic = TEM()
+        # temic = TEM()
+        # vol=self.__sample.density
+        # temic.gen_tild_series_imod
+
             
         
-        return None
+        # return None
     
     def save_tomo(
         self,

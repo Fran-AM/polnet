@@ -21,4 +21,8 @@ if __name__ == "__main__":
     with open(config_path, 'r') as f:
         config = json.load(f)
     
-    gen_tomos(config)
+    funcion = {"gen_tomos": gen_tomos}
+
+    funcion = PolnetFactory.get_function("gen_tomos")
+
+    funcion(config)

@@ -99,3 +99,37 @@ def insert_svol_tomo(svol, tomo, sub_pt, merge="max"):
                 tomo[off_l_x:off_h_x, off_l_y:off_h_y, off_l_z:off_h_z],
             )
         )
+
+def vol_cube(vol, off=0):
+    """
+    Reshape a 3D volume for being cubic
+
+    :param vol: input volume (ndarray)
+    :param off: offset voxels (default 0)
+    :return: a cubic volume with the info from the input, the cube dimension corresponds with the largest input
+             dimension
+    """
+    assert isinstance(vol, np.ndarray)
+    assert len(vol.shape) == 3
+    assert off >= 0
+    dim_max = np.argmax(vol.shape)
+    cube_dim = vol.shape[dim_max]
+    out_vol = np.zeros(shape=(cube_dim, cube_dim, cube_dim), dtype=vol.dtype)
+    if dim_max == 0:
+        off_ly, off_lz = (cube_dim - vol.shape[1])//2, (cube_dim - vol.shape[2])//2
+        off_hy, off_hz = off_ly + vol.shape[1], off_lz + vol.shape[2]
+        out_vol[:,off_ly:off_hy,off_lz:off_hz] = vol
+    elif dim_max == 1:
+        off_lx, off_lz = (cube_dim - vol.shape[0])//2, (cube_dim - vol.shape[2])//2
+        off_hx, off_hz = off_lx + vol.shape[0], off_lz + vol.shape[2]
+        out_vol[off_lx:off_hx,:,off_lz:off_hz] = vol
+    else:
+        off_lx, off_ly = (cube_dim - vol.shape[0])//2, (cube_dim - vol.shape[1])//2
+        off_hx, off_hy = off_lx + vol.shape[0], off_ly + vol.shape[1]
+        out_vol[off_lx:off_hx,off_lx:off_hx,:] = vol
+    if off > 0:
+        off_2 = off // 2
+        off_vol = np.zeros(shape=(cube_dim+off, cube_dim+off, cube_dim+off), dtype=vol.dtype)
+        off_vol[off_2:off_2+cube_dim, off_2:off_2+cube_dim, off_2:off_2+cube_dim] = out_vol
+        out_vol = off_vol
+    return out_vol
