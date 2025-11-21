@@ -64,6 +64,7 @@ class PnGen():
         self.__pmer_occ_rg = pmer_occ_rg
         self.__pmer_over_tol = pmer_over_tol
         self.__surf_dec = surf_dec
+        self.__scale = 1.0
         self.__gen_model()
 
     @property
@@ -88,7 +89,7 @@ class PnGen():
         """Generate the cytosolic protein model.
 
         """
-        self.__model = lin_map(self.__model)
+        self.__model = lin_map(self.__model, lb=0, ub=1)
         self.__model = vol_cube(self.__model)
         self.__model_mask = self.__model < self.__mmer_iso
         self.__model[self.__model_mask] = 0.0
@@ -108,6 +109,19 @@ class PnGen():
             -self.__model_center
         )
 
+    def set_scale(self, scale: float):
+        self.__model_surf = pp.poly_scale(self.__model_surf, scale/self.__scale)
+        self.__scale = scale
+
+    @property
+    def surf_diam(self) -> float:
+        """Get the surface diameter of the cytosolic protein model.
+
+        Returns:
+            float: Surface diameter of the cytosolic protein model.
+        """
+        return pp.poly_diam(self.__model_surf)
+
     def rnd_occ(self) -> float:
         """Generate a random occupancy value within the specified range.
 
@@ -117,6 +131,24 @@ class PnGen():
         return random.uniform(self.__pmer_occ_rg[0], self.__pmer_occ_rg[1])
     
     @property
+    def pmer_l(self) -> float:
+        """Get the polymer length parameter.
+
+        Returns:
+            float: Polymer length parameter.
+        """
+        return self.__pmer_l
+
+    @property
+    def over_tolerance(self) -> float:
+        """Get the overlap tolerance parameter.
+
+        Returns:
+            float: Overlap tolerance parameter.
+        """
+        return self.__pmer_over_tol
+    
+    @property
     def surf(self):
         """Get the surface representation of the cytosolic protein model.
 
@@ -124,6 +156,33 @@ class PnGen():
             pp.PolyData: Surface representation of the cytosolic protein model.
         """
         return self.__model_surf
+    
+    @property
+    def model(self) -> np.ndarray:
+        """Get the volumetric model of the cytosolic protein.
+
+        Returns:
+            np.ndarray: Volumetric model of the cytosolic protein.
+        """
+        return self.__model
+    
+    @property
+    def mask(self) -> np.ndarray:
+        """Get the mask of the cytosolic protein model.
+
+        Returns:
+            np.ndarray: Mask of the cytosolic protein model.
+        """
+        return self.__model_mask
+    
+    @property
+    def svol(self) -> np.ndarray:
+        """Get the volumetric model of the cytosolic protein.
+
+        Returns:
+            np.ndarray: Volumetric model of the cytosolic protein.
+        """
+        return self.__model < self.__mmer_iso
     
     @classmethod
     def from_params(cls, params: dict, data_path: Path, surf_dec: float) -> 'PnGen':

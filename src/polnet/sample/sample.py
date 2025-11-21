@@ -9,7 +9,7 @@ import numpy as np
 
 
 from .membranes import MbFactory, MbSet
-from .pns import PnGen, PnSet
+from .pns import PnGen, PnSAWLCNet
 
 from polnet.utils import poly as pp
 
@@ -202,6 +202,8 @@ class SyntheticSample():
             params: dict, 
             data_path: Path,
             surf_dec: float = 0.9,
+            mmer_tries: int = 20,
+            pmer_tries: int = 100,
             verbosity: bool = True
         ) -> None:
         """Generate and add a set of cytosolic proteins to the sample. Parameters for the protein generator class should be provided via the params dict.
@@ -213,20 +215,94 @@ class SyntheticSample():
             verbosity (bool, optional): Verbosity flag. Defaults to True.
         """
         pn_generator = PnGen.from_params(params, data_path=data_path, surf_dec=surf_dec)
+        pn_generator.set_scale(self.__v_size)
 
-        set_pns = PnSet(
+        # set_pns = PnSAWLCNet(
+        #     voi=self.__voi,
+        #     v_size=self.__v_size,
+        #     gen_rnd_cproteins=pn_generator,
+        #     tries_mmer=mmer_tries,
+        #     tries_pmer=pmer_tries,
+        #     verbosity=verbosity
+        # )
+
+        print("AAAAA", pn_generator.svol.shape)
+        set_pns = PnSAWLCNet(
             voi=self.__voi,
-            bg_voi=self.__bg_voi,
             v_size=self.__v_size,
-            gen_rnd_cproteins=pn_generator,
-            surf_dec=surf_dec,
-            verbosity=verbosity
+            l_length = pn_generator.pmer_l * pn_generator.surf_diam,
+            m_surf = pn_generator.surf,
+            max_p_length = pn_generator.pmer_l_max,
+            occ = pn_generator.rnd_occ(),
+            over_tolerance = pn_generator.over_tolerance,
+            poly=None,
+            svol = pn_generator.svol,
+            tries_mmer=mmer_tries,
+            tries_pmer=pmer_tries
+        )
+        
+        set_pns.build_network()
+
+        set_pns.insert_density_svol(
+            m_svol = pn_generator.mask,
+            tomo = self.__voi,
+            v_size = self.__v_size,
+            merge = "min"
         )
 
-        set_pns.build_set()
+        set_pns.insert_density_svol(
+            m_svol = pn_generator.model,
+            tomo = self.__density,
+            v_size = self.__v_size,
+            merge = "max"
+        )
 
-        pass
-    
+        hold_lbls = np.zeros(shape=self.__shape, dtype=np.uint8)
+        set_pns.insert_density_svol(
+            m_svol = np.invert(pn_generator.mask),
+            tomo = hold_lbls,
+            v_size = self.__v_size,
+            merge = "max"
+        )
+        self.__labels[hold_lbls > 0] = self.__entity_id_counter
+        counts = set_pns.get_num_mmers()
+        self.__structure_counts['cprotein'] = counts
+        self.__voxel_counts['cprotein'] = (self.__labels == self.__entity_id_counter).sum()
+        
+        hold_vtp = set_pns.get_vtp()
+        hold_skel_vtp = set_pns.get_skel()
+        pp.add_label_to_poly(
+            poly = hold_vtp,
+            lbl = self.__entity_id_counter,
+            p_name = "Entity",
+            mode = "both"
+        )
+        pp.add_label_to_poly(
+            poly = hold_skel_vtp,
+            lbl = self.__entity_id_counter,
+            p_name = "Entity",
+            mode = "both"
+        )
+        pp.add_label_to_poly(
+            poly = hold_vtp,
+            lbl = self.__output_labels['cprotein'],
+            p_name = "Type",
+            mode = "both"
+        )
+        pp.add_label_to_poly(
+            poly = hold_skel_vtp,
+            lbl = self.__output_labels['cprotein'],
+            p_name = "Type",
+            mode = "both"
+        )
+        if self.__poly_vtp is None:
+            self.__poly_vtp = hold_vtp
+            self.__skel_vtp = hold_skel_vtp
+        else:
+            self.__poly_vtp = pp.merge_polys(self.__poly_vtp, hold_vtp)
+            self.__skel_vtp = pp.merge_polys(self.__skel_vtp, hold_skel_vtp)
+        self.__entity_id_counter += 1
+
     def print_summary(self) -> None:
         """Prints a summary of the sample contents.
 

@@ -22,6 +22,7 @@ from .tomo_utils import trilin_interp, nn_iterp
 # CONSTANTS
 
 GTRUTH_VTP_LBLS = "gt_labels"
+VTK_RAY_TOLERANCE = 1e-6
 
 
 def find_point_on_poly(point, poly):

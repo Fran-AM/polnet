@@ -3,6 +3,7 @@ from pathlib import Path
 import sys
 
 from .sample import SyntheticSample, MbFile, PnFile
+#from .tem import TEM, TEMFile
 from .utils import lio
 
 class SynthTomo():
@@ -14,6 +15,7 @@ class SynthTomo():
         hns_file_list: list,
         pns_file_list: list,
         pms_file_list: list,
+        #tem_file_path: Path
     ):
         if not isinstance(mbs_file_list, list) or not all(isinstance(f, str) for f in mbs_file_list):
             raise TypeError("mbs_file_list must be a list of strings")
@@ -23,13 +25,17 @@ class SynthTomo():
             raise TypeError("pns_file_list must be a list of strings")
         if not isinstance(pms_file_list, list) or not all(isinstance(f, str) for f in pms_file_list):
             raise TypeError("pms_file_list must be a list of strings")
+        # if not isinstance(tem_file_path, Path):
+        #     raise TypeError("tem_file_path must be a Path object")
 
         self.__id = id
         self.__mbs_files = mbs_file_list
         self.__hns_files = hns_file_list
         self.__pns_files = pns_file_list
         self.__pms_files = pms_file_list
+        #self.__tem_file_path = tem_file_path
         self.__sample = None
+        self.__temic = None
     
     def gen_sample(
         self,
@@ -79,6 +85,8 @@ class SynthTomo():
                 params=pn_params,
                 data_path=data_path,
                 surf_dec=0.9,
+                mmer_tries=20,
+                pmer_tries=100,
                 verbosity=verbosity
             )
 
@@ -89,29 +97,30 @@ class SynthTomo():
     
     def tem(
         self,
+        data_path: Path,
         output_folder: Path,
-        tilt_angles: list,
     ):# TODO complete
         """Simulate TEM imaging of the synthetic sample.
 
         Returns:
             None
         """
-        pass 
+        pass
         # if output_folder is None or not isinstance(output_folder, Path):
         #     raise TypeError("output_folder must be a Path object.")
         # output_folder.mkdir(parents=True, exist_ok=True)
 
         # if self.__sample is None:
         #     raise RuntimeError("Sample has not been generated yet.")
-
-        # temic = TEM()
-        # vol=self.__sample.density
-        # temic.gen_tild_series_imod
-
-            
         
-        # return None
+        # tem_file_apath = data_path / self.__tem_file_path
+        # tem_file = TEMFile()
+        # tem_params = tem_file.load(tem_file_apath)
+        # self.__temic = TEM(tem_params)
+        # self.__temic.simulate(
+        #     vol=self.__sample.density,
+        #     params = tem_params
+        # )
     
     def save_tomo(
         self,
@@ -157,9 +166,6 @@ class SynthTomo():
             )
         else:
             print("Warning: No skel_vtp data to save.", file=sys.stderr)
-
-        # TODO: TEM simulation
-
         
     def __save_labels_table(
             self,

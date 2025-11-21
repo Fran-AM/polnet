@@ -20,8 +20,8 @@ np.random.seed(42)
 # Generation parameters
 N_TOMOS = 1
 VOI_SHAPE = (
-    500,
-    500,
+    300,
+    300,
     250,
 )
 VOI_OFFS = (
@@ -32,7 +32,7 @@ VOI_OFFS = (
 VOI_VSIZE = 10  # A/vx
 
 MEMBRANES_LIST = [
-    # "in_mbs/sphere.mbs",
+    "in_mbs/sphere.mbs",
     # "in_mbs/ellipse.mbs",
     # "in_mbs/toroid.mbs",
 ]
@@ -100,6 +100,7 @@ for tomo_id in range(N_TOMOS):
         pms_file_list=MB_PROTEINS_LIST,
     )
 
+    log("Starting sample generation")
     synth_tomo.gen_sample(
         data_path=DATA_DIR,
         shape=VOI_SHAPE,
@@ -107,8 +108,11 @@ for tomo_id in range(N_TOMOS):
         offset=VOI_OFFS,
         verbosity=True
     )
-    
+    log(f"Sample generation completed in {time.time() - hold_time:.2f} seconds.")
+    hold_time = time.time()
     synth_tomo.save_tomo(output_folder=OUTPUT_DIR / f"Tomo{tomo_id + 1:03d}")
+    log(f"Tomogram saved in {time.time() - hold_time:.2f} seconds.")
+
     synth_tomo.print_summary()
 
 
