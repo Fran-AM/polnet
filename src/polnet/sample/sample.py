@@ -12,6 +12,7 @@ from .membranes import MbFactory, MbSet
 from .pns import PnGen, PnSAWLCNet
 
 from polnet.utils import poly as pp
+from ..logging_conf import _LOGGER as logger
 
 class SyntheticSample():
     """A model for a synthetic Cryo-ET sample.
@@ -120,7 +121,7 @@ class SyntheticSample():
             int: The structure count for the specified type.
         """
         if type not in self.__structure_counts:
-            print(f"Warning: {type} structure count not found.", file=sys.stderr)
+            logger.warning(f"{type} structure count not found.")
         return self.__structure_counts.get(type, 0)
 
     def add_set_membranes(
@@ -161,6 +162,11 @@ class SyntheticSample():
         )
 
         set_mbs.build_set(verbosity=verbosity)
+
+        if verbosity:
+            logger.info(
+                f"Inserted {set_mbs.num_mbs} membranes of type '{mb_type}' with occupancy {100.0 * set_mbs.mb_occupancy:.4f} %."
+            )
 
         # Tomo update
         self.__voi = set_mbs.voi
@@ -217,16 +223,6 @@ class SyntheticSample():
         pn_generator = PnGen.from_params(params, data_path=data_path, surf_dec=surf_dec)
         pn_generator.set_scale(self.__v_size)
 
-        # set_pns = PnSAWLCNet(
-        #     voi=self.__voi,
-        #     v_size=self.__v_size,
-        #     gen_rnd_cproteins=pn_generator,
-        #     tries_mmer=mmer_tries,
-        #     tries_pmer=pmer_tries,
-        #     verbosity=verbosity
-        # )
-
-        print("AAAAA", pn_generator.svol.shape)
         set_pns = PnSAWLCNet(
             voi=self.__voi,
             v_size=self.__v_size,
@@ -303,21 +299,22 @@ class SyntheticSample():
             self.__skel_vtp = pp.merge_polys(self.__skel_vtp, hold_skel_vtp)
         self.__entity_id_counter += 1
 
-    def print_summary(self) -> None:
+    def summary(self) -> None:
         """Prints a summary of the sample contents.
 
         Returns:
             None
         """
-        print("Synthetic Sample Summary:")
-        print(f"  Shape: {self.__shape}")
-        print(f"  Voxel Size: {self.__v_size} Å")
-        print(f"  VOI Voxels: {self.__voi_voxels}")
-        print("  Structure Counts:")
+        message = "Synthetic Sample Summary:\n"
+        message += f"  Shape: {self.__shape}\n"
+        message += f"  Voxel Size: {self.__v_size} Å\n"
+        message += f"  VOI Voxels: {self.__voi_voxels}\n"
+        message += "  Structure Counts:\n"
         for struct_type, count in self.__structure_counts.items():
-            print(f"    {struct_type}:")
-            print(f"      Count: {count}")
-            print(f"      Occupancy: {100.0* self.__voxel_counts.get(struct_type, 0) / self.__voi_voxels:.4f} %")
+            message += f"    {struct_type}:\n"
+            message += f"      Count: {count}\n"
+            message += f"      Occupancy: {100.0 * self.__voxel_counts.get(struct_type, 0) / self.__voi_voxels:.4f} %\n"
+        logger.info(message)
 
         
     

@@ -12,13 +12,12 @@ import math
 import subprocess
 import numpy as np
 import scipy as sp
-from polnet import lio
+from ..utils import lio
 
 ## IMOD commands
 IMOD_CMD_XYZPROJ = "xyzproj"
 IMOD_CMD_TILT = "tilt"
 IMOD_CMD_AHEADER = "alterheader"
-
 
 class TEM:
     """

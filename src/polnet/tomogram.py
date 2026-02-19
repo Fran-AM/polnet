@@ -5,6 +5,7 @@ import sys
 from .sample import SyntheticSample, MbFile, PnFile
 #from .tem import TEM, TEMFile
 from .utils import lio
+from .logging_conf import _LOGGER as logger
 
 class SynthTomo():
 
@@ -59,11 +60,17 @@ class SynthTomo():
         if self.__sample is not None:
             raise RuntimeError("Sample has already been generated.")
 
+        if verbosity:
+            logger.info("Generating synthetic sample.")
+
         self.__sample = SyntheticSample(
             shape=shape,
             v_size=v_size,
             offset=offset
         )
+
+        if verbosity:
+            logger.info("Adding membranes to the sample.")
 
         for mb_file_rpath in self.__mbs_files:
             mb_file_apath = data_path / mb_file_rpath
@@ -75,6 +82,9 @@ class SynthTomo():
                 max_mbtries=10,
                 verbosity=verbosity
             )
+
+        if verbosity:
+            logger.info("Adding cytosolic proteins to the sample.")
 
         for pn_file_rpath in self.__pns_files:
             pn_file_apath = data_path / pn_file_rpath
@@ -210,8 +220,8 @@ class SynthTomo():
 
             return None
 
-    def print_summary(self) -> None:
-        """Print a summary of the synthetic sample.
+    def summary(self) -> None:
+        """Show a summary of the synthetic sample.
 
         Returns:
             None
@@ -219,8 +229,7 @@ class SynthTomo():
         if self.__sample is None:
             print("No sample generated yet.", file=sys.stderr)
             return
-
-        print(f"Synthetic Tomo: {self.__id}")
-        self.__sample.print_summary()
+        
+        self.__sample.summary()
         
         return None

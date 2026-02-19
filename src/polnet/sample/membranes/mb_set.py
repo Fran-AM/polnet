@@ -5,6 +5,7 @@ import vtk
 
 from .mb import Mb, MbError, MbGen
 from polnet.utils.poly import poly_scale
+from polnet.logging_conf import _LOGGER as logger
 
 class MbSet:
     """Class for modelling a set of membranes (same kind) within a tomogram."""
@@ -215,17 +216,15 @@ class MbSet:
                     grow=self.__grow,
                 )
                 if verbosity:
-                    print(
+                    logger.info(
                         f"Membrane {count_mb} inserted, total occupancy: {self.mb_occupancy:.3f}, volume: {hold_mb.vol} Å. Details:\n\t{hold_mb}"
                     )
                 count_mb += 1
             except MbError:
                 count_exp += 1
                 if count_exp == self.__max_mbtries:
-                    print(
-                        f"WARNING: more than {self.__max_mbtries} tries failed to insert a membrane!",
-                        file=sys.stderr,
-                    )
+                    logger.warning(
+                        f"WARNING: more than {self.__max_mbtries} tries failed to insert a membrane!"                    )
                     break
             count_exp = 0
         
