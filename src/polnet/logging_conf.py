@@ -1,44 +1,50 @@
-import logging 
+import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 _LOGGER = logging.getLogger("polnet")
 
-def setup_logger(log_folder: Path, log_level: int = logging.DEBUG):
+
+def setup_logger(
+    log_folder: Path,
+    console_level: int = logging.WARNING,
+    file_level: int = logging.DEBUG,
+):
     """Set up the logger with console and file handlers.
 
-    Returns:
-        None
+    Args:
+        log_folder: Directory for log files.
+        console_level: Minimum level for terminal output (default WARNING).
+        file_level: Minimum level for file output (default DEBUG).
     """
     if _LOGGER.hasHandlers():
-        _LOGGER.warning("Logger already set up")
-        return 
+        _LOGGER.handlers.clear()
+
     log_folder.mkdir(parents=True, exist_ok=True)
     log_file = log_folder / "polnet.log"
 
-    # Create root logger
-    _LOGGER.setLevel(log_level)
+    # Root logger level must be the lowest of the two handlers
+    _LOGGER.setLevel(min(console_level, file_level))
 
     # --- Console Handler ---
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(log_level)
+    console_handler.setLevel(console_level)
     console_format = logging.Formatter(
-        '[%(asctime)s] %(message)s',
-        datefmt='%H:%M'
+        "[%(asctime)s] %(levelname)s: %(message)s",
+        datefmt="%H:%M:%S",
     )
     console_handler.setFormatter(console_format)
 
-    # --- File Handler (rotating) ---
+    # --- File Handler (rotating, always verbose) ---
     file_handler = RotatingFileHandler(
         log_file, maxBytes=5_000_000, backupCount=5
     )
-    file_handler.setLevel(logging.INFO)
+    file_handler.setLevel(file_level)
     file_format = logging.Formatter(
-        '%(asctime)s,%(msecs)03d | %(levelname)s | %(name)s | %(process)d:%(threadName)s | %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
+        "%(asctime)s,%(msecs)03d | %(levelname)-8s | %(name)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
     file_handler.setFormatter(file_format)
 
-    # Add handlers
     _LOGGER.addHandler(console_handler)
     _LOGGER.addHandler(file_handler)

@@ -4,12 +4,16 @@ Functionality for Affine Transformations
 
 __author__ = "Antonio Martinez-Sanchez"
 
+from matplotlib.pyplot import _log
 import vtk
 import math
 import random
 import numpy as np
 from scipy import ndimage as spnd
+from .utils import wrap_angle
 from scipy.spatial.transform import Rotation as spR
+
+from ..logging_conf import _LOGGER as logger
 
 # CONSTANTS
 
@@ -255,8 +259,22 @@ def tomo_rotate(
     if not active:
         R = R.T
 
+    matrix = R.T
+    offset = center - matrix @ center
+    return spnd.affine_transform(
+        tomo, matrix, offset=offset,
+        order=order, mode=mode, cval=cval, prefilter=prefilter,
+        output_shape=tomo.shape
+    ) # TODO Erase downward code. For later
+
+    _HAS_JAX = False
     try:
         import jax
+        _HAS_JAX = True
+    except ImportError:
+        _HAS_JAX = False
+    
+    if _HAS_JAX:
 
         # Jax version (it should be faster when GPU available)
 
@@ -299,11 +317,10 @@ def tomo_rotate(
         )
         tomo_r = np.array(tomo_r)
 
-    except ImportError:
+    else:
 
         # Scipy versions
-        # print('Warning: GPU acceleration by using JAX is not enabled for rotations!')
-
+        #logger.debug("JAX not available, using SciPy for rotations")
         # Compute grid
         X, Y, Z = np.meshgrid(
             np.arange(tomo.shape[0]),
@@ -518,9 +535,7 @@ def rot_to_quat(rot):
     """
     r = spR.from_matrix(rot)
     hold_q = r.as_quat()
-    return np.asarray(
-        (hold_q[3], hold_q[0], hold_q[1], hold_q[2]), dtype=float
-    )
+    return np.asarray((hold_q[3], hold_q[0], hold_q[1], hold_q[2]), dtype=float)
 
 
 def tomo_shift(tomo, shift):
@@ -557,7 +572,7 @@ def tomo_shift(tomo, shift):
         np.arange(x_l, x_h),
         np.arange(y_l, y_h),
         np.arange(z_l, z_h),
-        indexing="xy",
+        indexing="ij",
     )
 
     # Check for trivial dimensions
@@ -570,7 +585,7 @@ def tomo_shift(tomo, shift):
     del Y, Z
 
     # Tomogram shifting in Fourier space
-    j = np.complex(0, 1)
+    j = 1j
     img = np.fft.fftn(tomo)
     return np.real(np.fft.ifftn(img * np.exp(-2.0 * np.pi * j * X)))
 
@@ -598,64 +613,3 @@ def uniform_sampling_so3(n):
         Q[i, 3] = R * np.cos(beta)
 
     return Q
-
-
-# Applies a linear mapping to the input array for getting an array in the specified range
-def lin_map(array, lb=0, ub=1):
-    """
-    Applies a linear mapping to the input array for getting an array in the specified range
-
-    :param array: input array to remap
-    :param lb: lower output bound for gray values (default 0)
-    :param ub: upper output bound for gray values (default 1)
-    :return: the remapped array with gray values in range lb and ub
-    """
-    a = np.max(array)
-    i = np.min(array)
-    den = a - i
-    if den == 0:
-        return array
-    m = (ub - lb) / den
-    c = ub - m * a
-    return m * array + c
-
-
-def wrap_angle(ang, deg=True):
-    """
-    Wrap an angle to be expressed in range (-pi, pi] or (-180, 180]
-
-    :param ang: input angle to wrap, it may also be an array
-    :param deg: if True (default) the input angle is degrees, otherwise in radians
-    :return: the angle value (or values) in the proper range
-    """
-    if deg:
-        phase = ((-ang + 180.0) % (2.0 * 180.0) - 180.0) * -1.0
-    else:
-        phase = ((-ang + np.pi) % (2.0 * np.pi) - np.pi) * -1.0
-    return phase
-
-
-def points_distance(a, b):
-    """
-    Computes the Euclidean distance between two point
-
-    :param a: input point a
-    :param b: input point b
-    :return: the Euclidean distance between a an b: d(a,b)
-    """
-    hold = b - a
-    return math.sqrt((hold * hold).sum())
-
-
-def gen_uni_s2_sample(center, rad):
-    """
-    Generates a coordinate from uniformly random distribution on a sphere
-
-    :param center: sphere center
-    :param rad: sphere radius
-    :return: the random coordinate generated
-    """
-    X = np.random.randn(1, 3)[0]
-    norm = rad / np.linalg.norm(X)
-    X *= norm
-    return X + center

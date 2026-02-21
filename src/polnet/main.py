@@ -17,7 +17,7 @@ def gen_tomos(config: dict) -> None:
     if not out_apath.exists():
         out_apath.mkdir(parents=True, exist_ok=True)
 
-    seed = config["global"].get("seed", None)
+    seed = config["global"].get("random_seed", None)
     n_tomos = config["global"]["ntomos"]
 
     voi_shape = config["sample"]["voi_shape"]
@@ -25,8 +25,8 @@ def gen_tomos(config: dict) -> None:
     vx_size = config["sample"]["vx_size"]
     membranes = config["sample"].get("membranes", [])
     helices = config["sample"].get("helices", [])
-    proteins = config["sample"].get("proteins", [])
-    mb_proteins = config["sample"].get("mb_proteins", [])
+    proteins = config["sample"].get("pns", [])
+    mb_proteins = config["sample"].get("pms", [])
 
     random.seed(seed)
 
@@ -43,12 +43,11 @@ def gen_tomos(config: dict) -> None:
             data_path=data_apath,
             shape=voi_shape,
             v_size=vx_size,
-            offset=voi_offs,
-            verbosity=True
+            offset=voi_offs
         )
 
         synth_tomo.save_tomo(output_folder=out_apath / f"Tomo{tomo_id + 1:03d}")
-        synth_tomo.print_summary()
+        synth_tomo.summary()
 
 
 

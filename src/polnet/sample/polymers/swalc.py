@@ -1,9 +1,16 @@
-
-
+import numpy as np
+import vtk
 from .monomer import Monomer
 from .polymer import Polymer
-from polnet.utils.affine import *
-import polnet.utils.poly as pp
+from ...utils.affine import (
+    gen_rand_unit_quaternion,
+)
+from ...utils.poly import (
+    gen_uni_s2_sample,
+    gen_uni_s2_sample_on_poly,
+    gen_rand_quaternion_on_vector,
+    find_point_on_poly
+)
 
 class SAWLC(Polymer):
     """
@@ -150,13 +157,13 @@ class SAWLCPoly(Polymer):
         :return:
         """
         assert hasattr(p0, "__len__") and (len(p0) == 3)
-        self._Polymer__p, hold_n = pp.find_point_on_poly(
+        self._Polymer__p, hold_n = find_point_on_poly(
             np.asarray(p0), self.__poly
         )
         hold_monomer = Monomer(self._Polymer__m_surf, self._Polymer__m_diam)
         # hold_q = np.asarray((1, 0., 0., 1.), dtype=np.float32)
         if rot is None:
-            hold_q = pp.gen_rand_quaternion_on_vector(hold_n)
+            hold_q = gen_rand_quaternion_on_vector(hold_n)
         else:
             assert hasattr(rot, "__len__") and (len(rot) == 4)
             hold_q = rot
@@ -198,7 +205,7 @@ class SAWLCPoly(Polymer):
             hold_l = self.__l
         else:
             hold_l = fix_dst
-        r = pp.gen_uni_s2_sample_on_poly(
+        r = gen_uni_s2_sample_on_poly(
             self._Polymer__r[-1], hold_l, 2, self.__poly
         )
         if r is None:
@@ -208,8 +215,8 @@ class SAWLCPoly(Polymer):
 
         # Rotation
         if rot is None:
-            hold_n = pp.find_point_on_poly(r, self.__poly)[1]
-            q = pp.gen_rand_quaternion_on_vector(hold_n)
+            hold_n = find_point_on_poly(r, self.__poly)[1]
+            q = gen_rand_quaternion_on_vector(hold_n)
             # q = np.asarray((1, 0, 0, 1), dtype=np.float32)
         else:
             q = rot

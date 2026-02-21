@@ -4,8 +4,8 @@ import numpy as np
 import vtk
 
 from .mb import Mb, MbError, MbGen
-from polnet.utils.poly import poly_scale
-from polnet.logging_conf import _LOGGER as logger
+from ...utils.poly import poly_scale
+from ...logging_conf import _LOGGER as logger
 
 class MbSet:
     """Class for modelling a set of membranes (same kind) within a tomogram."""
@@ -53,7 +53,7 @@ class MbSet:
         self.__voi = voi
         self.__bg_voi = bg_voi
         self.__v_size = v_size
-        self.__density = np.zeros(shape=voi.shape, dtype=np.float16)
+        self.__density = np.zeros(shape=voi.shape, dtype=np.float32)
         self.__mask = np.zeros(shape=voi.shape, dtype=bool)
         self.__surfs, self.__app_vtp = (
             vtk.vtkPolyData(),
@@ -224,8 +224,10 @@ class MbSet:
                 count_exp += 1
                 if count_exp == self.__max_mbtries:
                     logger.warning(
-                        f"WARNING: more than {self.__max_mbtries} tries failed to insert a membrane!"                    )
+                        f"More than {self.__max_mbtries} tries failed to insert a membrane"
+                )
                     break
+                continue
             count_exp = 0
         
         # Apply contrast factor to the density

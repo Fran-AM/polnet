@@ -4,9 +4,9 @@ import numpy as np
 import scipy as sp
 import vtk
 
-import polnet.utils.poly as pp
-from polnet.utils.affine import tomo_rotate
-from polnet.utils.tomo_utils import insert_svol_tomo
+from ...utils import poly as pp
+from ...utils.affine import tomo_rotate
+from ...utils.utils import insert_svol_tomo
 
 NET_TYPE_STR = "net_type"
 
@@ -99,7 +99,7 @@ class Network(ABC):
         Builds an instance of the network
 
         :return: None"""
-        raise NotImplemented
+        raise NotImplementedError("Subclasses must implement build_network method.")
 
     def get_voi(self):
         """
@@ -136,37 +136,20 @@ class Network(ABC):
             self.__voi = voi > 0
 
     def get_vtp(self):
-        """
-        Get Polymers Network as a vtkPolyData with their surfaces
-
-        :return: a vtkPolyData
-        """
-
+        if len(self.__pl) == 0:
+            return vtk.vtkPolyData()
         app_flt = vtk.vtkAppendPolyData()
-
-        # Polymers loop
         for pol in self.__pl:
             app_flt.AddInputData(pol.get_vtp())
         app_flt.Update()
-
         return app_flt.GetOutput()
 
     def get_skel(self, add_verts=True, add_lines=True, verts_rad=0):
-        """
-        Get the polymer as a skeleton, each monomer is a point or sphere and lines connecting monomers
-
-        :param add_verts: if True (default) the vertices are included in the vtkPolyData
-        :param add_lines: if True (default) the lines are included in the vtkPolyData
-        :param verts_rad: if verts is True then sets the vertex radius, if <=0 a vertices are just points
-        :return: a vtkPolyData
-        """
+        if len(self.__pl) == 0:
+            return vtk.vtkPolyData()
         app_flt = vtk.vtkAppendPolyData()
-
-        # Polymers loop
         for pol in self.__pl:
             app_flt.AddInputData(pol.get_skel(add_verts, add_lines, verts_rad))
-
-        # Update and return
         app_flt.Update()
         return app_flt.GetOutput()
 
@@ -262,5 +245,5 @@ class Network(ABC):
                 try:
                     counts[id] += 1
                 except KeyError:
-                    counts[id] = 0
+                    counts[id] = 1
         return counts

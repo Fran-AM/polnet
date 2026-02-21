@@ -1,8 +1,9 @@
 import csv
+import time
 from pathlib import Path
 import sys
 
-from .sample import SyntheticSample, MbFile, PnFile
+from .sample import SyntheticSample, MbFile, PnFile, HxFile
 #from .tem import TEM, TEMFile
 from .utils import lio
 from .logging_conf import _LOGGER as logger
@@ -19,7 +20,7 @@ class SynthTomo():
         #tem_file_path: Path
     ):
         if not isinstance(mbs_file_list, list) or not all(isinstance(f, str) for f in mbs_file_list):
-            raise TypeError("mbs_file_list must be a list of strings")
+            raise TypeError("mbs_file_list must be a list of strings.")
         if not isinstance(hns_file_list, list) or not all(isinstance(f, str) for f in hns_file_list):
             raise TypeError("hns_file_list must be a list of strings")
         if not isinstance(pns_file_list, list) or not all(isinstance(f, str) for f in pns_file_list):
@@ -43,8 +44,7 @@ class SynthTomo():
         data_path: Path,
         shape: tuple,
         v_size: float,
-        offset: tuple,
-        verbosity: bool = False,
+        offset: tuple
     ) -> None:
         """Generate a synthetic sample with membranes, host and parasite networks.
 
@@ -53,15 +53,15 @@ class SynthTomo():
             shape (tuple): Shape of the volume of interest (VOI) in voxels.
             v_size (float): Voxel size in Angstroms.
             offset (tuple): Offset of the VOI in voxels.
-            verbosity (bool, optional): If True, print verbose output. Defaults to False.
         Returns:
             None
         """
         if self.__sample is not None:
             raise RuntimeError("Sample has already been generated.")
 
-        if verbosity:
-            logger.info("Generating synthetic sample.")
+        logger.info("Generating synthetic sample.")
+
+        tic = time.time()
 
         self.__sample = SyntheticSample(
             shape=shape,
@@ -69,8 +69,7 @@ class SynthTomo():
             offset=offset
         )
 
-        if verbosity:
-            logger.info("Adding membranes to the sample.")
+        logger.info("Adding membranes to the sample.")
 
         for mb_file_rpath in self.__mbs_files:
             mb_file_apath = data_path / mb_file_rpath
@@ -79,12 +78,21 @@ class SynthTomo():
 
             self.__sample.add_set_membranes(
                 params=mb_params,
-                max_mbtries=10,
-                verbosity=verbosity
+                max_mbtries=10
             )
 
-        if verbosity:
-            logger.info("Adding cytosolic proteins to the sample.")
+        logger.info("Membranes added. Adding helicoidal networks to the sample.")
+
+        for hn_file_rpath in self.__hns_files:
+            hn_file_apath = data_path / hn_file_rpath
+            hn_file = HxFile()
+            hn_params = hn_file.load(hn_file_apath)
+
+            self.__sample.add_helicoidal_network(
+                params=hn_params
+            )
+
+        logger.info("Helicoidal networks added. Adding cytosolic proteins to the sample.")
 
         for pn_file_rpath in self.__pns_files:
             pn_file_apath = data_path / pn_file_rpath
@@ -96,12 +104,14 @@ class SynthTomo():
                 data_path=data_path,
                 surf_dec=0.9,
                 mmer_tries=20,
-                pmer_tries=100,
-                verbosity=verbosity
+                pmer_tries=100
             )
 
 
         # TODO: Add the rest of components
+
+        toc = time.time()
+        logger.info(f"Synthetic sample generated in {toc - tic:.2f} seconds.")
 
         return None
     
@@ -166,7 +176,7 @@ class SynthTomo():
                 poly_den_path,
             )
         else:
-            print("Warning: No poly_vtp data to save.", file=sys.stderr)
+            logger.warning("No poly_vtp data to save.")
 
         if self.__sample.skel_vtp is not None:
             poly_skel_path = output_folder / f"tomo_{self.__id:03d}_poly_skel.vtp"
@@ -175,7 +185,7 @@ class SynthTomo():
                 poly_skel_path,
             )
         else:
-            print("Warning: No skel_vtp data to save.", file=sys.stderr)
+            logger.warning("No skel_vtp data to save.")
         
     def __save_labels_table(
             self,
@@ -227,7 +237,7 @@ class SynthTomo():
             None
         """
         if self.__sample is None:
-            print("No sample generated yet.", file=sys.stderr)
+            logger.error("No sample generated yet.")
             return
         
         self.__sample.summary()

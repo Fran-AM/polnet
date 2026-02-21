@@ -3,9 +3,9 @@ import random
 import numpy as np
 import vtk
 
-from polnet.sample.polymers import Network, SAWLC
-from polnet.utils.poly import *
-from polnet.utils.affine import points_distance
+from ...sample.polymers import Network, SAWLC
+from ...utils.poly import *
+from ...utils.utils import points_distance
 
 class NetSAWLC(Network):
     """
@@ -114,7 +114,7 @@ class NetSAWLC(Network):
             if self.__poly:
                 p0 = np.asarray(
                     self.__poly.GetPoint(
-                        random.randint(0, self.__poly.GetNumberOfPoints())
+                        random.randint(0, self.__poly.GetNumberOfPoints()-1)
                     )
                 )
             else:

@@ -4,9 +4,9 @@ import random
 import mrcfile
 import numpy as np
 
-from polnet.utils.affine import lin_map, poly_translate
-from polnet.utils.arrays import vol_cube
-import polnet.utils.poly as pp
+from ...utils.affine import poly_translate
+from ...utils.utils import lin_map, vol_cube
+from ...utils import poly as pp
 
 class Pn:
     """
@@ -68,7 +68,7 @@ class PnGen():
         self.__gen_model()
 
     @property
-    def pmel_l(self) -> float:
+    def pmer_l(self) -> float:
         """Get the polymer length parameter.
 
         Returns:
@@ -129,15 +129,6 @@ class PnGen():
             float: A random occupancy value.
         """
         return random.uniform(self.__pmer_occ_rg[0], self.__pmer_occ_rg[1])
-    
-    @property
-    def pmer_l(self) -> float:
-        """Get the polymer length parameter.
-
-        Returns:
-            float: Polymer length parameter.
-        """
-        return self.__pmer_l
 
     @property
     def over_tolerance(self) -> float:
@@ -182,7 +173,7 @@ class PnGen():
         Returns:
             np.ndarray: Volumetric model of the cytosolic protein.
         """
-        return self.__model < self.__mmer_iso
+        return self.__model_mask
     
     @classmethod
     def from_params(cls, params: dict, data_path: Path, surf_dec: float) -> 'PnGen':

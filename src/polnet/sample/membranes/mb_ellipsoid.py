@@ -12,10 +12,9 @@ import scipy as sp
 
 from .mb import Mb, MbGen, MbError
 from .mb_factory import MbFactory
-from polnet.utils.affine import lin_map, tomo_rotate
-from polnet.utils.distribution import gen_rand_unit_quaternion, gen_bounded_exp 
-from polnet.utils.tomo_utils import density_norm
-from polnet.utils.poly import iso_surface, add_sfield_to_poly, poly_threshold
+from ...utils.affine import tomo_rotate, gen_rand_unit_quaternion
+from ...utils.utils import lin_map, density_norm, gen_bounded_exp
+from ...utils.poly import iso_surface, add_sfield_to_poly, poly_threshold
 
 
 class MbEllipsoid(Mb):
@@ -57,7 +56,7 @@ class MbEllipsoid(Mb):
         """
         super(MbEllipsoid, self).__init__(voi_shape, v_size, thick, layer_s)
 
-        if not hasattr(center, "__len__") or (len(center) != 3):
+        if not isinstance(center, tuple) or (len(center) != 3):
             raise TypeError(
                 "center must be a tuple of three floats (X, Y and Z)"
             )
@@ -104,7 +103,8 @@ class MbEllipsoid(Mb):
         p0_v[2] -= dz2
         x_l, y_l, z_l = -dx2, -dy2, -dz2
         x_h, y_h, z_h = -dx2 + dx, -dy2 + dy, -dz2 + dz
-        X, Y, Z = np.meshgrid(np.arange(x_l, x_h), np.arange(y_l, y_h), np.arange(z_l, z_h), indexing='xy')
+        
+        X, Y, Z = np.meshgrid(np.arange(x_l, x_h), np.arange(y_l, y_h), np.arange(z_l, z_h), indexing='ij')
 
         # Mask generation
         R_o = ((X - p0_v[0]) / ao_v) ** 2 + ((Y - p0_v[1]) / bo_v) ** 2 + ((Z - p0_v[2]) / co_v) ** 2
@@ -132,9 +132,10 @@ class MbEllipsoid(Mb):
         R_i = ((X - p0_v[0]) / ai_v_m1) ** 2 + ((Y - p0_v[1]) / bi_v_m1) ** 2 + ((Z - p0_v[2]) / ci_v_m1) ** 2
         G += tomo_rotate(np.logical_and(R_i >= 1, R_o <= 1), self.__rot_q, order=0)
 
-        # Smoothing
-        self._Mb__density = lin_map(density_norm(sp.ndimage.gaussian_filter(G.astype(float), s_v), inv=True), ub=0, lb=1)
+        if G.sum() == 0:
+            raise MbError("Generated membrane bilayer has no voxels within the VOI.")
 
+        self._Mb__density = lin_map(density_norm(sp.ndimage.gaussian_filter(G.astype(float), s_v), inv=True), ub=0, lb=1)
 
     def __str__(self):
         center_str = f"({self.__center[0]:.2f}, {self.__center[1]:.2f}, {self.__center[2]:.2f})"
@@ -235,7 +236,7 @@ class EllipGen(MbGen):
         if self.__max_axis is None:
             self.__max_axis = math.sqrt(3) * max(voi_shape) * v_size
 
-        center = np.asarray(
+        center = tuple(
             (
                 voi_shape[0] * v_size * random.random(),
                 voi_shape[1] * v_size * random.random(),

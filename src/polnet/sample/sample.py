@@ -6,12 +6,14 @@ This module defines the SyntheticSample class, which models a synthetic Cryo-ET 
 from pathlib import Path
 import sys
 import numpy as np
+import random
 
 
 from .membranes import MbFactory, MbSet
+from .filaments import HxFactory
 from .pns import PnGen, PnSAWLCNet
 
-from polnet.utils import poly as pp
+from ..utils import poly as pp
 from ..logging_conf import _LOGGER as logger
 
 class SyntheticSample():
@@ -72,7 +74,7 @@ class SyntheticSample():
         ] = True
         self.__voi_voxels = self.__voi.sum()
         self.__bg_voi = self.__voi.copy()
-        self.__labels = np.zeros(shape=self.__shape, dtype=np.uint8)
+        self.__labels = np.zeros(shape=self.__shape, dtype=np.uint8) # Up to 255 unique labels, which should be sufficient for most samples. Adjust dtype if more are needed.
         self.__density = np.zeros(shape=self.__shape, dtype=np.float32)
         self.__poly_vtp = None
         self.__skel_vtp = None
@@ -86,10 +88,6 @@ class SyntheticSample():
             "cprotein": 4
         }
         self.__entity_id_counter = 1
-
-    @property
-    def id(self) -> int:
-        return self.__id
     
     @property
     def density(self) -> np.ndarray:
@@ -128,8 +126,7 @@ class SyntheticSample():
             self, 
             params: dict, 
             max_mbtries: int = 10,
-            grow: int = 0,
-            verbosity: bool = True
+            grow: int = 0
         ) -> None:
         """Generate and add a set of membranes to the sample. Parameters for the membrane generator class should be provided via the params dict.
 
@@ -137,8 +134,6 @@ class SyntheticSample():
             params (dict): Parameters for the membrane generator class. Should include 'type' key.
             max_ntries (int, optional): Maximum number of tries to add the membrane. Defaults to 10.
             grow (int, optional): Number of voxels to grow the membrane mask in the VOI. Defaults to 0.
-            verbosity (bool, optional): Verbosity flag. Defaults to True.
-
         Raises:
             KeyError: if 'MB_TYPE' key is not in params.
 
@@ -161,12 +156,11 @@ class SyntheticSample():
             grow=grow,
         )
 
-        set_mbs.build_set(verbosity=verbosity)
+        set_mbs.build_set()
 
-        if verbosity:
-            logger.info(
-                f"Inserted {set_mbs.num_mbs} membranes of type '{mb_type}' with occupancy {100.0 * set_mbs.mb_occupancy:.4f} %."
-            )
+        logger.info(
+            f"Inserted {set_mbs.num_mbs} membranes of type '{mb_type}' with occupancy {100.0 * set_mbs.mb_occupancy:.4f} %."
+        )
 
         # Tomo update
         self.__voi = set_mbs.voi
@@ -195,13 +189,81 @@ class SyntheticSample():
         
         return None
     
-    def add_helicoidal_network(
-            self, 
-            params: dict, 
-            verbosity: bool = True
-        ) -> None:
-        # TODO: Implement method to add helicoidal networks
-        pass
+    def add_helicoidal_network(self, params: dict) -> None:
+        """Generate and add a helicoidal fiber network to the sample."""        
+        hx_type = params["HX_TYPE"]
+
+        # Occupancy
+        occ = params["HX_PMER_OCC"]
+        if isinstance(occ, (list, tuple)):
+            occ = random.uniform(occ[0], occ[1])
+
+        # Factory creates components
+        fiber_unit, param_gen, NetworkCls, net_kwargs = HxFactory.create(
+            hx_type, params, self.__v_size
+        )
+        model_svol = fiber_unit.get_tomo()
+        model_surf = fiber_unit.get_vtp()
+        model_mask = model_svol < 0.05
+
+        # Build network
+        net = NetworkCls(
+            voi=self.__voi,
+            v_size=self.__v_size,
+            l_length=params["HX_PMER_L"] * params["HX_MMER_RAD"] * 2,
+            m_surf=model_surf,
+            gen_hfib_params=param_gen,
+            occ=occ,
+            min_p_len=params["HX_MIN_P_LEN"],
+            hp_len=params["HX_HP_LEN"],
+            mz_len=params["HX_MZ_LEN"],
+            mz_len_f=params["HX_MZ_LEN_F"],
+            over_tolerance=params.get("HX_OVER_TOL", 0),
+            **net_kwargs,
+        )
+        if params.get("HX_MIN_NMMER") is not None:
+            net.set_min_nmmer(params["HX_MIN_NMMER"])
+        net.build_network()
+
+        if net.get_num_pmers() == 0:
+            logger.info(f"No {hx_type} fibers generated (occupancy target may be unreachable).")
+            self.__entity_id_counter += 1
+            return
+
+        # Insert density
+        net.insert_density_svol(model_mask, self.__voi, self.__v_size, merge="min")
+        den_cf_rg = params.get("HX_DEN_CF_RG")
+        den_cf = param_gen.gen_den_cf(den_cf_rg[0], den_cf_rg[1]) if den_cf_rg else 1.0
+        net.insert_density_svol(model_svol * den_cf, self.__density, self.__v_size, merge="max")
+
+        # Update labels
+        hold_lbls = np.zeros(shape=self.__shape, dtype=np.float32)
+        net.insert_density_svol(np.invert(model_mask), hold_lbls, self.__v_size, merge="max")
+        self.__labels[hold_lbls > 0] = self.__entity_id_counter
+
+        # Structure counts
+        type_key = "microtubule" if hx_type == "mt" else "actin"
+        if type_key not in self.__structure_counts:
+            self.__structure_counts[type_key] = 0
+            self.__voxel_counts[type_key] = 0
+        self.__structure_counts[type_key] += net.get_num_pmers()
+        self.__voxel_counts[type_key] += (self.__labels == self.__entity_id_counter).sum()
+
+        # Update polydata
+        hold_vtp = net.get_vtp()
+        hold_skel_vtp = net.get_skel()
+        pp.add_label_to_poly(hold_vtp, self.__entity_id_counter, "Entity", mode="both")
+        pp.add_label_to_poly(hold_skel_vtp, self.__entity_id_counter, "Entity", mode="both")
+        type_label = self.__output_labels.get(type_key, self.__entity_id_counter)
+        pp.add_label_to_poly(hold_vtp, type_label, "Type", mode="both")
+        pp.add_label_to_poly(hold_skel_vtp, type_label, "Type", mode="both")
+        if self.__poly_vtp is None:
+            self.__poly_vtp = hold_vtp
+            self.__skel_vtp = hold_skel_vtp
+        else:
+            self.__poly_vtp = pp.merge_polys(self.__poly_vtp, hold_vtp)
+            self.__skel_vtp = pp.merge_polys(self.__skel_vtp, hold_skel_vtp)
+        self.__entity_id_counter += 1
 
     def add_set_cproteins(
             self, 

@@ -14,6 +14,8 @@ import numpy as np
 import scipy as sp
 from ..utils import lio
 
+from ..logging_conf import _LOGGER as logger
+
 ## IMOD commands
 IMOD_CMD_XYZPROJ = "xyzproj"
 IMOD_CMD_TILT = "tilt"
@@ -122,10 +124,10 @@ class TEM:
                 subprocess.call(xyzproj_cmd, stdout=file_log, stderr=file_log)
             self.__save_tangs_file(angs)
         except subprocess.CalledProcessError:
-            print("ERROR: Error calling the command:", xyzproj_cmd)
+            logger.error("ERROR: Error calling the command: %s", xyzproj_cmd)
             raise subprocess.CalledProcessError
         except IOError:
-            print("ERROR: Log file could not be written:", self.__log_file)
+            logger.error("ERROR: Log file could not be written: %s", self.__log_file)
             raise IOError
 
     def add_detector_noise(self, snr):
@@ -187,10 +189,10 @@ class TEM:
                 )
                 subprocess.call(tilt_cmd, stdout=file_log, stderr=file_log)
         except subprocess.CalledProcessError:
-            print("ERROR: Error calling the command:", tilt_cmd)
+            logger.error("ERROR: Error calling the command: %s", tilt_cmd)
             raise subprocess.CalledProcessError
         except IOError:
-            print("ERROR: Log file could not be written:", self.__log_file)
+            logger.error("ERROR: Log file could not be written: %s", self.__log_file)
             raise IOError
 
         # Swap Y-Z axes from the output given by IMOD
@@ -247,10 +249,10 @@ class TEM:
                 )
                 subprocess.call(aheader_cmd, stdout=file_log, stderr=file_log)
         except subprocess.CalledProcessError:
-            print("ERROR: Error calling the command:", aheader_cmd)
+            logger.error("ERROR: Error calling the command: %s", aheader_cmd)
             raise subprocess.CalledProcessError
         except IOError:
-            print("ERROR: Log file could not be written:", self.__log_file)
+            logger.error("ERROR: Log file could not be written: %s", self.__log_file)
             raise IOError
 
     def invert_mics_den(self):

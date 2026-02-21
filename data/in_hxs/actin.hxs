@@ -1,0 +1,13 @@
+HX_TYPE = actin
+HX_MMER_RAD = 25
+HX_PMER_L = 1.2
+HX_PMER_OCC = (0.5, 1) # (1.5, 5)
+HX_MIN_P_LEN = 17.7e4
+HX_HP_LEN = 720
+HX_MZ_LEN = 50
+HX_MZ_LEN_F = 0.2
+HX_OVER_TOL = 0 # In percentage
+HX_MIN_NMMER = 15
+
+A_BPROP = 0.5
+A_MAX_P_BRANCH = 5

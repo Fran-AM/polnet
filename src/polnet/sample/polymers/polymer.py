@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
-from polnet.utils.poly import *
-from polnet.utils.affine import *
+from ...utils.poly import *
+from ...utils.affine import *
 
 from .monomer import Monomer
 

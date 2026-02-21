@@ -1,9 +1,9 @@
 import numpy as np
 import vtk
 
-from polnet.utils.poly import *
-from polnet.utils.affine import poly_rotate_wxyz, quat_to_angle_axis, poly_translate, tomo_rotate, vect_rotate, points_distance
-from polnet.utils.tomo_utils import insert_svol_tomo
+from ...utils.affine import poly_rotate_wxyz, quat_to_angle_axis, poly_translate, tomo_rotate, vect_rotate
+from ...utils.utils import insert_svol_tomo, points_distance
+from ...utils.poly import poly_center_mass, poly_volume, poly_diam, VTK_RAY_TOLERANCE
 
 MB_DOMAIN_FIELD_STR = "mb_domain"
 
@@ -93,7 +93,7 @@ class Monomer:
         if (self.__bounds[2] > point[1]) or (self.__bounds[3] < point[1]):
             y_over = False
         if (self.__bounds[4] > point[2]) or (self.__bounds[5] < point[2]):
-            y_over = False
+            z_over = False
         return x_over and y_over and z_over
 
     def bound_in_bounds(self, bounds):

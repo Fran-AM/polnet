@@ -4,25 +4,22 @@ Functionality of processing PolyData
 
 __author__ = "Antonio Martinez-Sanchez"
 
+from .affine import *
+from .utils import *
 import vtk
 import numpy as np
-import math
 from scipy import stats
 from vtkmodules.util import numpy_support
-from .affine import (
-    angle_axis_to_quat,
-    vect_to_zmat,
-    rot_to_quat,
-    quat_mult,
-    points_distance,
-)
-from .tomo_utils import trilin_interp, nn_iterp
 
+from ..logging_conf import _LOGGER as logger
 
 # CONSTANTS
 
 GTRUTH_VTP_LBLS = "gt_labels"
-VTK_RAY_TOLERANCE = 1e-6
+
+
+# FUNCTIONS
+from .utils import wrap_angle
 
 
 def find_point_on_poly(point, poly):
@@ -223,12 +220,7 @@ def add_sfield_to_poly(
         arr.SetNumberOfValues(n_points)
         for i in range(n_points):
             x, y, z = poly.GetPoint(i)
-            val = interp_func(x, y, z, sfield)
-            if dtype == "int":
-                val = int(val)
-            else:
-                val = float(val)
-            arr.SetValue(i, val)
+            arr.SetValue(i, interp_func(x, y, z, sfield))
         poly.GetPointData().AddArray(arr)
     else:
         # Creating and adding the new property as a new array for CellData
@@ -332,7 +324,7 @@ def add_label_to_poly(poly, lbl, p_name, mode="cell"):
         for i in range(n_cells):
             arr.SetValue(i, lbl)
         poly.GetCellData().AddArray(arr)
-    elif mode == "cell" or mode == "both":
+    if mode == "point" or mode == "both":
         arr = vtk.vtkIntArray()
         n_points = poly.GetNumberOfPoints()
         arr.SetName(p_name)
@@ -527,203 +519,4 @@ def save_vti(img: vtk.vtkImageData, fname: str):
     writer.SetFileName(fname)
     writer.SetInputData(img)
     if writer.Write() != 1:
-        print("ERROR: unknown error writting the .vti file!!!")
-
-
-def iso_surface(tomo, th, flp=None, closed=False, normals=None):
-    """
-    Iso-surface on an input 3D volume
-
-    :param tomo: input 3D numpy array
-    :param th: iso-surface threshold
-    :param flp: if not None (default) it specifies the axis to flip (valid: 0, 1 or 3)
-    :param closed: if True (default False) if forces to generate a closed surface, VERY IMPORTANT: closed output
-    is only guaranteed for input boolean tomograms
-    :param normals: normals orientation, valid None (default), 'inwards' and 'outwards'. Any value different from None
-                    reduces surface precision
-    :return: a vtkPolyData object only made up of triangles
-    """
-
-    # Marching cubes configuration
-    march = vtk.vtkMarchingCubes()
-    tomo_vtk = numpy_to_vti(tomo)
-    if closed:
-        # print str(tomo_vtk.GetExtent()), str(tomo.shape)
-        padder = vtk.vtkImageConstantPad()
-        padder.SetInputData(tomo_vtk)
-        padder.SetConstant(0)
-        padder.SetOutputWholeExtent(
-            -1, tomo.shape[0], -1, tomo.shape[1], -1, tomo.shape[2]
-        )
-        padder.Update()
-        tomo_vtk = padder.GetOutput()
-
-    # Flipping
-    if flp is not None:
-        flp_i = int(flp)
-        if (flp_i >= 0) and (flp_i <= 3):
-            fliper = vtk.vtkImageFlip()
-            fliper.SetFilteredAxis(flp_i)
-            fliper.SetInputData(tomo_vtk)
-            fliper.Update()
-            tomo_vtk = fliper.GetOutput()
-
-    # Running Marching Cubes
-    march.SetInputData(tomo_vtk)
-    march.SetValue(0, th)
-    march.Update()
-    hold_poly = march.GetOutput()
-
-    # Filtering
-    hold_poly = poly_filter_triangles(hold_poly)
-
-    # Normals orientation
-    if normals is not None:
-        orienter = vtk.vtkPolyDataNormals()
-        orienter.SetInputData(hold_poly)
-        orienter.AutoOrientNormalsOn()
-        if normals == "inwards":
-            orienter.FlipNormalsOn()
-        orienter.Update()
-        hold_poly = orienter.GetOutput()
-
-    if closed and (not is_closed_surface(hold_poly)):
-        raise RuntimeError
-
-    return hold_poly
-
-
-def is_closed_surface(poly):
-    """
-    Checks if an input vtkPolyData is a closed surface
-
-    :param poly: input vtkPolyData to check
-    :return: True is the surface is closed, otherwise False
-    """
-    selector = vtk.vtkSelectEnclosedPoints()
-    selector.CheckSurfaceOn()
-    selector.SetSurfaceData(poly)
-    if selector.GetCheckSurface() > 0:
-        return True
-    else:
-        return False
-
-
-def poly_filter_triangles(poly):
-    """
-    Filter a vtkPolyData to keep just the polys which are triangles
-
-    :param poly: input vtkPolyData
-    :return: a copy of the input poly but filtered
-    """
-    cut_tr = vtk.vtkTriangleFilter()
-    cut_tr.SetInputData(poly)
-    cut_tr.PassVertsOff()
-    cut_tr.PassLinesOff()
-    cut_tr.Update()
-    return cut_tr.GetOutput()
-
-
-def numpy_to_vti(array, spacing=[1, 1, 1]):
-    """
-    Converts a 3D numpy array into vtkImageData object
-
-    :param array: 3D numpy array
-    :param spacing: distance between pixels
-    :return: a vtkImageData object
-    """
-
-    # Flattern the input array
-    array_1d = numpy_support.numpy_to_vtk(
-        num_array=np.reshape(array, -1, order="F"),
-        deep=True,
-        array_type=vtk.VTK_FLOAT,
-    )
-
-    # Create the new vtkImageData
-    nx, ny, nz = array.shape
-    image = vtk.vtkImageData()
-    image.SetSpacing(spacing)
-    image.SetDimensions(nx, ny, nz)
-    image.AllocateScalars(vtk.VTK_FLOAT, 1)
-    image.GetPointData().SetScalars(array_1d)
-
-    return image
-
-
-def poly_threshold(poly, p_name, mode="points", low_th=None, hi_th=None):
-    """
-    Threshold a vtkPolyData according the values of a property
-
-    :param poly: vtkPolyData to threshold
-    :param p_name: property name for points
-    :param mode: determines if the property is associated to points data 'points' (default) or 'cells'
-    :low_th: low threshold value, default None then the minimum property value is assigned
-    :hi_th: high threshold value, default None then the maximum property value is assigned
-    :return: the threshold vtkPolyData
-    """
-
-    # Input parsing
-    prop = None
-    assert (mode == "points") or (mode == "cells")
-    if mode == "points":
-        n_arrays = poly.GetPointData().GetNumberOfArrays()
-        for i in range(n_arrays):
-            if p_name == poly.GetPointData().GetArrayName(i):
-                prop = poly.GetPointData().GetArray(p_name)
-                break
-    else:
-        n_arrays = poly.GetCellData().GetNumberOfArrays()
-        for i in range(n_arrays):
-            if p_name == poly.GetCellData().GetArrayName(i):
-                prop = poly.GetCellData().GetArray(p_name)
-                break
-    assert prop is not None
-    if (low_th is None) or (hi_th is None):
-        rg_low, rg_hi = prop.GetRange()
-    if low_th is None:
-        low_th = rg_low
-    if hi_th is None:
-        hi_th = rg_hi
-
-    # Points thresholding filter
-    th_flt = vtk.vtkThreshold()
-    th_flt.SetInputData(poly)
-    if mode == "cells":
-        th_flt.SetInputArrayToProcess(
-            0, 0, 0, vtk.vtkDataObject.FIELD_ASSOCIATION_CELLS, p_name
-        )
-    else:
-        th_flt.SetInputArrayToProcess(
-            0, 0, 0, vtk.vtkDataObject.FIELD_ASSOCIATION_POINTS, p_name
-        )
-    # th_flt.ThresholdByUpper(.5)
-    # th_flt.ThresholdBetween(low_th, hi_th)
-    th_flt.SetLowerThreshold(low_th)
-    th_flt.SetUpperThreshold(hi_th)
-    th_flt.AllScalarsOff()
-    th_flt.Update()
-
-    surf_flt = vtk.vtkDataSetSurfaceFilter()
-    surf_flt.SetInputData(th_flt.GetOutput())
-    surf_flt.Update()
-
-    return surf_flt.GetOutput()
-
-
-def poly_scale(in_vtp, s):
-    """
-    Applies scaling transformation to a vtkPolyData
-
-    :param in_vtp: input vtkPolyData
-    :param s: scaling factor
-    :return: the transformed vtkPolyData
-    """
-    # Translation
-    box_sc = vtk.vtkTransform()
-    box_sc.Scale(s, s, s)
-    tr_box = vtk.vtkTransformPolyDataFilter()
-    tr_box.SetInputData(in_vtp)
-    tr_box.SetTransform(box_sc)
-    tr_box.Update()
-    return tr_box.GetOutput()
+        logger.error("Failed to write .vti file: %s", fname)

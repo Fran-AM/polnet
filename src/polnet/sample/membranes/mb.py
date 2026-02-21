@@ -8,8 +8,8 @@ import numpy as np
 import scipy as sp
 import vtk
 
-from polnet.utils.poly import poly_mask
-from polnet.utils.tomo_utils import insert_svol_tomo
+from ...utils.poly import poly_mask
+from ...utils.utils import insert_svol_tomo
 
 class Mb(ABC):
     """Abstract class to model membranes with different geometries
@@ -310,7 +310,7 @@ class MbGen(ABC):
         """
         Creates a membrane generator object from a dictionary of parameters
         """
-        raise NotImplemented
+        raise NotImplementedError("MbGen subclasses must implement this method")
 
     @abstractmethod
     def generate(voi_shape: tuple[int, int, int], v_size: float) -> Mb:
@@ -324,7 +324,7 @@ class MbGen(ABC):
         Returns:
             Mb: generated membrane object
         """
-        raise NotImplemented
+        raise NotImplementedError("MbGen subclasses must implement this method")
 
 class MbError(Exception):
     """Custom exception for membrane-related errors.
