@@ -10,6 +10,7 @@ import os
 import time
 import math
 import subprocess
+import random
 import numpy as np
 import scipy as sp
 from ..utils import lio
@@ -302,3 +303,51 @@ class TEM:
 
         # Save shited micrographs
         lio.write_mrc(mics, self.__micgraphs_file)
+
+    def _resolve_snr(self, detector_snr):
+        """Resolve SNR value from config (scalar, range, or None)."""
+        if detector_snr is None:
+            return None
+        if isinstance(detector_snr, (list, tuple)) and len(detector_snr) >= 2:
+            return round(
+                (detector_snr[1] - detector_snr[0]) * random.random() + detector_snr[0], 2
+            )
+        elif isinstance(detector_snr, (list, tuple)):
+            return detector_snr[0]
+        return detector_snr
+
+    def simulate(self, density, tem_params, v_size):
+        """Run the full TEM simulation pipeline.
+        
+        Args:
+            density: 3D density volume.
+            tem_params: Dict from .tem config file.
+            v_size: Voxel size in Angstroms.
+
+        Returns:
+            snr (float or None): The SNR used for detector noise.
+        """
+        tilt_rg = tem_params["TILT_ANGS_RG"]
+        tilt_step = tem_params["TILT_ANGS_STEP"]
+        tilt_angs = np.arange(tilt_rg[0], tilt_rg[1], tilt_step)
+
+        logger.info("Generating tilt series.")
+        self.gen_tilt_series_imod(density, tilt_angs, ax="Y")
+
+        self.add_mics_misalignment(
+            tem_params["MALIGN_MIN"], tem_params["MALIGN_MAX"], tem_params["MALIGN_SG"]
+        )
+
+        snr = self._resolve_snr(tem_params.get("DETECTOR_SNR"))
+        if snr is not None:
+            logger.info(f"Adding detector noise with SNR={snr}.")
+            self.add_detector_noise(snr)
+
+        self.invert_mics_den()
+        self.set_header(data="mics", p_size=(v_size, v_size, v_size))
+
+        logger.info("Reconstructing 3D tomogram.")
+        self.recon3D_imod()
+        self.set_header(data="rec3d", p_size=(v_size, v_size, v_size), origin=(0, 0, 0))
+
+        return snr

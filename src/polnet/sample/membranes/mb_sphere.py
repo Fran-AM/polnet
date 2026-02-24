@@ -257,7 +257,7 @@ class SphGen(MbGen):
 
     def generate(self, voi_shape: tuple, v_size: float) -> MbSphere:
         """
-        Generates a s..utilpherical membrane with random parameters within the input volume of interest shape
+        Generates a spherical membrane with random parameters within the input volume of interest shape
 
         Args:
             voi_shape: shape of the volume of interest

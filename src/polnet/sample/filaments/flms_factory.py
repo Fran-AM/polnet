@@ -1,8 +1,8 @@
 from .fiber_unit import FiberUnitSDimer, MTUnit
-from .hx_gen import HxParamGen, HxParamGenBranched
-from .hx_network import NetHelixFiber, NetHelixFiberB
+from .flms_gen import FlmsParamGen, HxParamGenBranched
+from .flms_network import NetHelixFiber, NetHelixFiberB
 
-class HxFactory:
+class FlmsFactory:
 
     @classmethod
     def create(cls, hx_type: str, params: dict, v_size: float):
@@ -14,7 +14,7 @@ class HxFactory:
                 n_units=int(params["MT_NUNITS"]),
                 v_size=v_size,
             )
-            param_gen = HxParamGen()
+            param_gen = FlmsParamGen()
             net_cls = NetHelixFiber
             net_kwargs = dict(
                 unit_diam=(params["MT_RAD"] + 0.5 * params["HX_MMER_RAD"]) * 2.4,

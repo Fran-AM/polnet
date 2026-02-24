@@ -7,10 +7,11 @@ import numpy as np
 from ...utils.affine import poly_translate
 from ...utils.utils import lin_map, vol_cube
 from ...utils import poly as pp
+from ..polymers.monomer import MB_DOMAIN_FIELD_STR
 
-class Pn:
+class Pm:
     """
-    Class representing a cytosolic protein entity
+    Class representing a membrane-bound protein entity
     """
 
     def __init__(
@@ -33,20 +34,21 @@ class Pn:
         self.__build()
 
     def __build(self):
-        """Build the cytosolic protein entity structure.
+        """Build the membrane-bound protein entity structure.
 
         Raises:
-            NotImplementedError: Cytosolic protein structure building not yet implemented.
+            NotImplementedError: Membrane-bound protein structure building not yet implemented.
         """
-        raise NotImplementedError("Cytosolic protein structure building not yet implemented.")
+        raise NotImplementedError("Membrane-bound protein structure building not yet implemented.")
 
-class PnGen():
+class PmGen():
     """
-    Class for generating cytosolic protein entities
+    Class for generating membrane-bound protein entities
     """ 
 
     def __init__(
         self,
+        v_size: float,
         surf_dec: float,
         mmer_id: str,
         model: np.ndarray,
@@ -54,7 +56,10 @@ class PnGen():
         pmer_l: float,
         pmer_l_max: float,
         pmer_occ_rg: tuple[float, float],
-        pmer_over_tol: float = 0.0
+        pmer_over_tol: float = 0.0,
+        pmer_reverse_normals: bool = True,
+        mmer_center: tuple[float, float, float] = None,
+        mb_z_height: int = None
     ):
         self.__mmer_id = mmer_id
         self.__model = model
@@ -63,7 +68,11 @@ class PnGen():
         self.__pmer_l_max = pmer_l_max
         self.__pmer_occ_rg = pmer_occ_rg
         self.__pmer_over_tol = pmer_over_tol
+        self.__pmer_reverse_normals = pmer_reverse_normals
+        self.__mmer_center = mmer_center
+        self.__mb_z_height = mb_z_height
         self.__surf_dec = surf_dec
+        self.__v_size = v_size
         self.__scale = 1.0
         self.__gen_model()
 
@@ -84,6 +93,15 @@ class PnGen():
             float: Maximum polymer length parameter.
         """
         return self.__pmer_l_max
+    
+    @property
+    def reverse_normals(self) -> bool:
+        """Get the flag indicating whether to reverse normals.
+
+        Returns:
+            bool: Flag indicating whether to reverse normals.
+        """
+        return self.__pmer_reverse_normals
 
     def __gen_model(self):
         """Generate the cytosolic protein model.
@@ -103,11 +121,27 @@ class PnGen():
             self.__model_surf,
             self.__surf_dec
         )
-        self.__model_center = 0.5 * np.asarray(self.__model.shape, dtype=float)
-        self.__model_surf  = poly_translate(
+        
+        center = self.__mmer_center
+        if center is None:
+            center = 0.5 * (np.asarray(self.__model.shape, dtype=float) - 1)
+
+        mb_z_height = self.__mb_z_height
+        if mb_z_height is None:
+            mb_z_height = int(round(center[2] + 2.5 / self.__v_size))
+
+        mb_domain_mask = np.ones(shape=self.__model.shape, dtype=bool)
+        mb_domain_mask[:, :, mb_z_height + 1:] = 0
+
+        pp.add_sfield_to_poly(
             self.__model_surf,
-            -self.__model_center
+            mb_domain_mask,
+            MB_DOMAIN_FIELD_STR,
+            dtype="float",
+            interp="NN",
+            mode="points",
         )
+        self.__model_surf = poly_translate(self.__model_surf, -center)
 
     def set_scale(self, scale: float):
         self.__model_surf = pp.poly_scale(self.__model_surf, scale/self.__scale)
@@ -176,15 +210,17 @@ class PnGen():
         return self.__model_mask
     
     @classmethod
-    def from_params(cls, params: dict, data_path: Path, surf_dec: float) -> 'PnGen':
-        """Create a PnGen instance from a parameters dictionary.
+    def from_params(cls, params: dict, data_path: Path, surf_dec: float, v_size: float) -> 'PmGen':
+        """Create a PmGen instance from a parameters dictionary.
 
         Args:
-            params (dict): Dictionary containing the parameters for cytosolic protein generation.
+            params (dict): Dictionary containing the parameters for membrane-bound protein generation.
             data_path (Path): Path to the data directory containing the template files.
+            surf_dec (float): Surface decimation factor.
+            v_size (float): Voxel size in Angstroms.
 
         Returns:
-            PnGen: An instance of the PnGen class.
+            PmGen: An instance of the PmGen class.
         """
 
         # Convert relative path to absolute path
@@ -194,7 +230,7 @@ class PnGen():
         mmer_path = data_path / mmer_path
 
         # Check if PMER_OCC is a float or a tuple
-        if isinstance(params["PMER_OCC"], float):
+        if isinstance(params["PMER_OCC"], numeric := (int, float)):
             params["PMER_OCC"] = (params["PMER_OCC"], params["PMER_OCC"])
 
         try:
@@ -202,6 +238,7 @@ class PnGen():
             mmer_svol = np.swapaxes(mrc.data, 0, 2)
             mrc.close()
             return cls(
+                v_size=v_size,
                 surf_dec=surf_dec,
                 mmer_id=params["MMER_ID"],
                 model=mmer_svol,
@@ -209,24 +246,27 @@ class PnGen():
                 pmer_l=params["PMER_L"],
                 pmer_l_max=params["PMER_L_MAX"],
                 pmer_occ_rg=params["PMER_OCC"],
-                pmer_over_tol=params.get("PMER_OVER_TOL", 0.0)
+                pmer_over_tol=params.get("PMER_OVER_TOL", 0.0),
+                pmer_reverse_normals=params.get("PMER_REVERSE_NORMALS", True),
+                mmer_center=params.get("MMER_CENTER", None),
+                mb_z_height=params.get("MB_Z_HEIGHT", None)
             )
         except Exception as e:
             raise FileNotFoundError(f"Error loading mmer_svol file {mmer_path}: {e}")
 
-    def generate(self,voi_shape: tuple[int, int, int], v_size: float) -> Pn:
-        """Generate a cytosolic protein entity.
+    def generate(self, voi_shape: tuple[int, int, int], v_size: float) -> Pm:
+        """Generate a membrane-bound protein entity.
 
         Args:
             voi_shape (tuple[int, int, int]): Shape of the volume of interest (VOI) in voxels.
             v_size (float): Voxel size in Angstroms.
 
         Returns:
-            Pn: Generated cytosolic protein entity.
+            Pm: Generated membrane-bound protein entity.
         """
-        raise NotImplementedError("Cytosolic protein generation not yet implemented.")
+        raise NotImplementedError("Membrane-bound protein generation not yet implemented.")
     
-class PnError(Exception):
-    """Custom exception for cytosolic protein generation errors."""
+class PmError(Exception):
+    """Custom exception for membrane-bound protein generation errors."""
     def __init__(self, message: str):
         super().__init__(message)

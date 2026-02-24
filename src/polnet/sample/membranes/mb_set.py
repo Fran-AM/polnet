@@ -72,10 +72,7 @@ class MbSet:
     @property
     def mb_occupancy(self) -> float:
         """Get the membrane occupancy within the VOI."""
-        return self.__mask.sum() / np.prod(
-            np.asarray(self.__voi.shape, dtype=float)
-        )
-
+        return self.__mask.sum() / self.__voi.sum() if self.__voi.sum() > 0 else 0.0
     @property
     def voi(self) -> np.ndarray:
         """Get the VOI with the membranes inserted."""
@@ -139,7 +136,7 @@ class MbSet:
             ~available
         )
 
-        return (tomo_over.sum() / mb.vol) > over_tolerance
+        return (tomo_over.sum() / mb.mask.sum()) > over_tolerance if mb.mask.sum() > 0 else False
 
     def insert_mb(
         self,
@@ -225,7 +222,7 @@ class MbSet:
                 if count_exp == self.__max_mbtries:
                     logger.warning(
                         f"More than {self.__max_mbtries} tries failed to insert a membrane"
-                )
+                    )   
                     break
                 continue
             count_exp = 0

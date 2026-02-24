@@ -2,7 +2,7 @@
 import random
 import numpy as np
 
-class HxParamGen():
+class FlmsParamGen():
     """
     Class to model random distribution for helix fiber parameters
     """
@@ -47,7 +47,7 @@ class HxParamGen():
         assert (low >= 0) and (high >= low)
         return (high - low) * random.random() + low
 
-class HxParamGenBranched(HxParamGen):
+class HxParamGenBranched(FlmsParamGen):
     """
     Class to model random distribution for helix fiber parameters with branches
     """

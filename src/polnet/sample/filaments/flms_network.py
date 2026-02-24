@@ -4,8 +4,8 @@ import random
 from ..polymers import Network
 import numpy as np
 import vtk
-from .hx_fiber import HelixFiber
-from .hx_gen import HxParamGen, HxParamGenBranched
+from .flms_fiber import HelixFiber
+from .flms_gen import FlmsParamGen, HxParamGenBranched
 
 from ...utils.utils import (
     points_distance
@@ -62,7 +62,7 @@ class NetHelixFiber(Network):
         # Input parsing
         assert l_length > 0
         assert isinstance(m_surf, vtk.vtkPolyData)
-        assert isinstance(gen_hfib_params, HxParamGen)
+        assert isinstance(gen_hfib_params, FlmsParamGen)
         assert (occ >= 0) and (occ <= 100)
         assert (over_tolerance >= 0) and (over_tolerance <= 100)
         assert (

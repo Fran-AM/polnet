@@ -3,7 +3,7 @@
 import ast
 from pathlib import Path
 
-class HxFile:
+class FlmsFile:
     """
     For handling helix configuration files
     """
@@ -13,19 +13,19 @@ class HxFile:
 
     @property
     def type(self):
-        return self.__params.get("HX_TYPE", None)
+        return self.__params.get("FLMS_TYPE", None)
 
     def load(self, in_file: Path) -> dict:
         """
         Load helix parameters from an input file
 
         Args:
-            in_file (Path): path to the input file with extension .hxs
+            in_file (Path): path to the input file with extension .flms
         """
-        if not in_file.suffix == ".hxs":
-            raise ValueError("Input file must have a .hxs extension.")
+        if not in_file.suffix == ".flms":
+            raise ValueError("Input file must have a .flms extension.")
         if not in_file.exists():
-            raise FileNotFoundError(f"Helix file {in_file} does not exist.") 
+            raise FileNotFoundError(f"Flms file {in_file} does not exist.") 
         with open(in_file, "r") as f:
             for line in f:
                 line = line.strip()

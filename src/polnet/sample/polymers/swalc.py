@@ -5,8 +5,10 @@ from .polymer import Polymer
 from ...utils.affine import (
     gen_rand_unit_quaternion,
 )
+from ...utils.utils import (
+    gen_uni_s2_sample
+)
 from ...utils.poly import (
-    gen_uni_s2_sample,
     gen_uni_s2_sample_on_poly,
     gen_rand_quaternion_on_vector,
     find_point_on_poly

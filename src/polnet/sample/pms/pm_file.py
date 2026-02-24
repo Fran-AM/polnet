@@ -1,11 +1,11 @@
-"""Module for managing cytosolic proteins configuration files"""
+"""Module for managing membrane-bound proteins configuration files"""
 
 import ast
 from pathlib import Path
 
-class PnFile:
+class PmFile:
     """
-    For handling cytosolic proteins configuration files
+    For handling membrane-bound proteins configuration files
     """
 
     def __init__(self):
@@ -17,13 +17,13 @@ class PnFile:
 
     def load(self, in_file: Path) -> None:
         """
-        Load protein parameters from an input file
+        Load membrane-bound protein parameters from an input file
 
         Args:
-            in_file (Path): path to the input file with extension .pns
+            in_file (Path): path to the input file with extension .pms
         """
-        if not in_file.suffix == ".pns":
-            raise ValueError("Input file must have a .pns extension.")
+        if not in_file.suffix == ".pms":
+            raise ValueError("Input file must have a .pms extension.")
         if not in_file.exists():
             raise FileNotFoundError(f"Protein file {in_file} does not exist.") 
         with open(in_file, "r") as f:

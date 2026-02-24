@@ -24,9 +24,9 @@ def load_mrc(fname, mmap=False, no_saxes=True):
     :return: a ndarray (or memmap is mmap=True)
     """
     if mmap:
-        mrc = mrcfile.mmap(fname, permissive=True, mode='r')
+        mrc = mrcfile.mmap(fname, permissive=True, mode='r+')
     else:
-        mrc = mrcfile.open(fname, permissive=True, mode='r')
+        mrc = mrcfile.open(fname, permissive=True, mode='r+')
     if no_saxes:
         return np.swapaxes(mrc.data, 0, 2)
     return mrc.data

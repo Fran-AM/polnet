@@ -1,12 +1,13 @@
 from .sample import SyntheticSample
 from .membranes import MbFile
-from .filaments import HxFile
+from .filaments import FlmsFile
 from .pns import PnFile
-
+from .pms import PmFile
 
 __all__ = [
     "SyntheticSample",
     "MbFile",
-    "HxFile",
+    "FlmsFile",
     "PnFile",
+    "PmFile"
 ]

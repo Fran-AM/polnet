@@ -3,7 +3,7 @@ import random
 import numpy as np
 import vtk
 
-from ...sample.polymers import Network, SAWLC
+from ...sample.polymers import Network, SAWLC, SAWLCPoly
 from ...utils.poly import *
 from ...utils.utils import points_distance
 
