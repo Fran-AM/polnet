@@ -1,0 +1,79 @@
+# PolNet example configuration — all features enabled.
+#
+# This YAML drives the full simulation pipeline.  Paths to model files
+# (.mbs, .flms, .pns, .pms, .tem) are resolved relative to folders.input.
+# See README.md § Configuration and § Output for details.
+
+metadata:
+    version: "1.0"                     # Config format version (informational).
+    author: "Juan Diego Gallego Nicolás"
+    date: "2025-11-06"
+
+folders:
+    root: null                          # Project root; null = auto-detected
+                                        # (parent of this config file).
+    input: "data"                       # Directory containing input model files.
+    output: "results"                   # Directory where tomograms are written.
+
+global:
+    ntomos: 1                           # Number of tomograms to generate.
+    seed: 42                            # Random seed for reproducibility.
+
+sample:
+    voi_shape: [300, 300, 250]          # Volume of interest size in voxels.
+    voi_offset: [4, 4, 4]               # Border padding excluded from object
+                                        # placement in voxels.
+    v_size: 10.0                        # Voxel size in Angstroms (Å).
+
+    # Membrane generators — each .mbs file defines the shape, thickness,
+    # density contrast, and occupancy of one membrane population.
+    membranes:
+        - "in_mbs/sphere.mbs"
+        - "in_mbs/ellipsoid.mbs"
+        - "in_mbs/toroid.mbs"
+
+    # Filament generators — each .flms file defines the polymer type
+    # (microtubule, actin), monomer geometry, and occupancy.
+    filaments:
+        - "in_flms/mt.flms"
+        - "in_flms/actin.flms"
+
+    # Cytosolic (free) proteins — each .pns file references a density
+    # map (.mrc) and specifies occupancy and placement parameters.
+    pns:
+        - "in_10A/4v4r_10A.pns"
+        - "in_10A/3j9i_10A.pns"
+        - "in_10A/4v4r_50S_10A.pns"
+        - "in_10A/4v4r_30S_10A.pns"
+        - "in_10A/6utj_10A.pns"
+        - "in_10A/5mrc_10A.pns"
+        - "in_10A/4v7r_10A.pns"
+        - "in_10A/2uv8_10A.pns"
+        - "in_10A/4v94_10A.pns"
+        - "in_10A/4cr2_10A.pns"
+        - "in_10A/3qm1_10A.pns"
+        - "in_10A/3h84_10A.pns"
+        - "in_10A/3gl1_10A.pns"
+        - "in_10A/3d2f_10A.pns"
+        - "in_10A/3cf3_10A.pns"
+        - "in_10A/2cg9_10A.pns"
+        - "in_10A/1u6g_10A.pns"
+        - "in_10A/1s3x_10A.pns"
+        - "in_10A/1qvr_10A.pns"
+        - "in_10A/1bxn_10A.pns"
+
+    # Membrane-bound proteins — each .pms file references a density map
+    # and is placed on the surface of generated membranes.
+    pms:
+        - "in_10A/mb_6rd4_10A.pms"
+        - "in_10A/mb_5wek_10A.pms"
+        - "in_10A/mb_4pe5_10A.pms"
+        - "in_10A/mb_5ide_10A.pms"
+        - "in_10A/mb_5gjv_10A.pms"
+        - "in_10A/mb_5kxi_10A.pms"
+        - "in_10A/mb_5tj6_10A.pms"
+        - "in_10A/mb_5tqq_10A.pms"
+        - "in_10A/mb_5vai_10A.pms"
+# TEM simulation — .tem file specifies tilt angles, SNR, and alignment errors.
+tem:
+    config: "in_tem/default.tem"

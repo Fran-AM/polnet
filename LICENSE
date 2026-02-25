@@ -11,3 +11,7 @@ Copyright 2023 Antonio Martinez-Sanchez "anmartinezs@um.es"
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+   Note: Third-party code vendored under src/external/ is licensed
+   separately under its own terms.  See NOTICE and the LICENSE file
+   within each vendored package directory for details.

@@ -1,0 +1,35 @@
+# Version control
+.git/
+.github/
+.gitignore
+
+# Virtual environments
+.venv/
+.format/
+venv/
+
+# IDE
+.idea/
+.vscode/
+
+# Caches and build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+docs/build/
+
+# Generated output (not needed in image)
+results/
+data/data_generated/
+data/output/
+
+# Docker files (avoid recursive context)
+docker/
+!docker/imod_installer.sh
+
+# Development files
+tests/
+scripts/
+*.swp
