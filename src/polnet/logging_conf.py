@@ -33,10 +33,10 @@ def setup_logger(
     log_folder.mkdir(parents=True, exist_ok=True)
     log_file = log_folder / "polnet.log"
 
-    # Root logger level must be the lowest of the two handlers
+    # Set logger level to lowest handler level
     _LOGGER.setLevel(min(console_level, file_level))
 
-    # --- Console Handler ---
+    # Console handler setup
     console_handler = logging.StreamHandler()
     console_handler.setLevel(console_level)
     console_format = logging.Formatter(
@@ -45,7 +45,7 @@ def setup_logger(
     )
     console_handler.setFormatter(console_format)
 
-    # --- File Handler (rotating, always verbose) ---
+    # File handler setup (rotating, always verbose)
     file_handler = RotatingFileHandler(
         log_file, maxBytes=5_000_000, backupCount=5
     )

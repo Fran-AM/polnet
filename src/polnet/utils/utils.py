@@ -365,6 +365,9 @@ def lin_map(array, lb=0, ub=1):
 
     Returns:
         numpy.ndarray: The remapped array with values in [lb, ub].
+    
+    Note:
+        If the input array is constant, returns the original array unchanged.
     """
     a = np.max(array)
     i = np.min(array)

@@ -229,10 +229,8 @@ class SynthTomo:
             raise TypeError("output_folder must be a Path object.")
         output_folder.mkdir(parents=True, exist_ok=True)
 
-        # Save motif list
         self._save_motif_list()
 
-        # Save synthetic sample files
         den_path = output_folder / f"tomo_{self._id:03d}_den.mrc"
         lio.write_mrc(
             self._sample.density,
@@ -267,7 +265,6 @@ class SynthTomo:
         else:
             logger.warning("No skel_vtp data to save.")
 
-        # Copy TEM output files (micrographs + reconstruction)
         if self._temic is not None:
             snr_tag = f"_snr{self._snr}" if self._snr is not None else ""
             tem_dir = self._tomo_dir / "tem"
