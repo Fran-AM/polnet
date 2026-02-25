@@ -27,6 +27,7 @@ data/output/
 
 # Docker files (avoid recursive context)
 docker/
+!docker/imod_installer.sh
 
 # Development files
 tests/

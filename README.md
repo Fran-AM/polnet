@@ -25,8 +25,6 @@ Python package for generating synthetic datasets of the cellular context for Cry
     - [Examples](#examples)
   - [Output](#output)
   - [Docker](#docker)
-    - [Building the image](#building-the-image)
-    - [Running the container](#running-the-container)
   - [Package description](#package-description)
   - [Third-party code](#third-party-code)
     - [Curvatubes performance notes](#curvatubes-performance-notes)
@@ -196,34 +194,16 @@ results/                              # folders.output
 
 ## Docker
 
-The Docker image bundles Python, IMOD, PolNet, and the default input data so no local installation is needed.
-
-### Building the image
-
-From the **project root**:
-
-```console
-bash docker/create_docker.sh
-```
-
-This runs `docker build -f docker/Dockerfile -t polnet_docker .`
-
-### Running the container
-
-```console
-bash docker/run_docker.sh --config /path/to/config.yaml --out_dir /path/to/output
-```
-
-To mount a custom data directory (overrides the bundled `data/` folder):
-
-```console
-bash docker/run_docker.sh \
-    --config /path/to/config.yaml \
-    --out_dir /path/to/output \
-    --data_dir /path/to/custom/data
-```
-
-> **Note:** Make sure `folders.output` in your config YAML points to `/app/outdir` and `folders.input` points to `/app/data` so the volume mounts align with the container paths.
+> ⚠️ **Docker support is not yet available.**
+>
+> Packaging IMOD inside a container is blocked by a bug in the IMOD 5.x
+> self-extracting installer (hard-coded internal archive paths) combined with the
+> end-of-life status of the Debian Buster base image where the 4.x installer was
+> known to work. Docker support will be added in a future release once a reliable
+> installation path for IMOD in a container is available.
+>
+> In the meantime, please follow the [installation instructions](#installation)
+> above to run polnet directly on your host.
 
 ## Package description
 
