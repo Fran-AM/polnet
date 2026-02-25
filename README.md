@@ -29,7 +29,7 @@ Python package for generating synthetic datasets of the cellular context for Cry
   - [Third-party code](#third-party-code)
     - [Curvatubes performance notes](#curvatubes-performance-notes)
   - [Documentation](#documentation)
-  - [Citation](#citation)
+  - [Citations](#citations)
 
 ## Overview
 
@@ -301,12 +301,16 @@ Additional resources:
 
 - **Molecules table:** `docs/molecules_table.md` — detailed descriptions of the PDB models used to create macromolecular structural units provided in `data/`.
 
-## Citation
+## Citations
 
-<u>Original article</u>
+<u>Original article:</u>
 
-Martinez-Sanchez A.*, and Lamm L., Jasnin M. and Phelippeau H. (2024) "Simulating the cellular context in synthetic datasets for cryo-electron tomography" *IEEE Transactions on Medical Imaging* [10.1109/TMI.2024.3398401](https://doi.org/10.1109/TMI.2024.3398401)
+Martinez-Sanchez A., Lamm L., Jasnin M. & Phelippeau H. (2024) "Simulating the cellular context in synthetic datasets for cryo-electron tomography" *IEEE Transactions on Medical Imaging* 43(11), 3742-3754. [10.1109/TMI.2024.3398401](https://doi.org/10.1109/TMI.2024.3398401)
 
-<u>Realistic membranes extension</u>
+<u>Realistic membranes extension:</u>
 
 Seghiri, R., Gallego Nicolás, J. D., Brandt, R., Meroño, M. A., Lefevre, P., Hajarolasvadi, N., Baum, D., Heebner, J., Phelippeau, H., Doux, P., & Martinez-Sanchez, A. (2026). TomoSegNet: Augmented membrane segmentation for cryo-electron tomography by simulating the cellular context. bioRxiv. [10.64898/2026.01.15.699326](https://doi.org/10.64898/2026.01.15.699326)
+
+<u>Curvatubes article (third party code):</u>
+
+Song, A (2022). Generation of Tubular and Membranous Shape Textures with Curvature Functionals. *Journal of Mathematical Imaging and Vision* 64, 17–40. [10.1007/s10851-021-01049-9](doi:10.1007/s10851-021-01049-9)
