@@ -1,103 +1,133 @@
-"""Classes for generating a membrane with Spherical shape
+"""Spherical membrane generator.
 
-MbSphere: class for generating a membrane with Spherical shape
-SphGen: Spherical memrbrane generator class
+Defines :class:`SphGen`, registered under the ``"sphere"`` key
+in :class:`~polnet.sample.membranes.mb_factory.MbFactory`.
+Generates spherical lipid bilayer structures by computing an
+analytical isosurface from a parametric sphere equation.
+
+:author: Antonio Martinez-Sanchez
+:maintainer: Juan Diego Gallego Nicolás
 """
 
 import math
 import random
 
 import numpy as np
-import scipy as sp
+from scipy.ndimage import gaussian_filter
 
-from .mb import Mb, MbGen
+from .mb import (
+    Mb,
+    MbGen,
+)
 from .mb_factory import MbFactory
-from ...utils.utils import lin_map, density_norm
-from ...utils.poly import iso_surface, add_sfield_to_poly, poly_threshold
+from ...utils.poly import (
+    add_sfield_to_poly,
+)
+from ...utils.utils import (
+    density_norm,
+    iso_surface,
+    lin_map,
+    poly_threshold,
+)
 
 
-class MbSphere(Mb):
-    """Class for generating a membrane with Spherical shape"""
+@MbFactory.register("sphere")
+class SphGen(MbGen):
+    """Spherical membrane generator."""
 
     def __init__(
         self,
-        voi_shape: tuple,
-        v_size: float = 1,
-        thick: float = 1,
-        layer_s: float = 1,
-        center: tuple[float, float, float] = (0, 0, 0),
-        rad: float = 1,
+        thick_rg: tuple[float, float],
+        layer_s_rg: tuple[float, float],
+        occ_rg: tuple[float, float],
+        over_tol: float,
+        mb_den_cf_rg: tuple[float, float],
+        min_rad: float,
+        max_rad: float = None,
     ) -> None:
-        """Constructor
-
-        Defines the basic properties of a spherical membrane and generates it.
+        """Constructor.
 
         Args:
-            voi_shape (tuple): reference volume of interest shape (X, Y and Z dimensions)
-            v_size (float, optional): reference volume of interest voxel size in angstroms. Defaults to 1.
-            thick (float, optional): membrane thickness in angstroms. Defaults to 1.
-            layer_s (float, optional): Gaussian sigma for each layer in angstroms. Defaults to 1.
-            center (tuple, optional): center of the sphere in angstroms. Defaults to (0, 0, 0).
-            rad (float, optional): radius of the sphere in angstroms. Defaults to 1.
-
-        Raises:
-            TypeError: if 'voi_shape' is not a tuple of three integers
-            ValueError: if any dimension of 'voi_shape' is not an integer
-            ValueError: if 'v_size' or 'thick' are not positive floats or 'layer_s' is negative
-            TypeError: if 'center' is not a tuple of three floats
-            ValueError: if any dimension of 'center' is not a float
-            TypeError: if 'rad' is not a float
-            ValueError: if 'rad' is not positive
-
-        Returns:
-            None
+            thick_rg: (min, max) bilayer thickness in angstroms.
+            layer_s_rg: (min, max) Gaussian layer sigma in angstroms.
+            occ_rg: (min, max) target occupancy fraction.
+            over_tol: Overlap tolerance fraction.
+            mb_den_cf_rg: (min, max) density contrast factor.
+            min_rad: Minimum sphere radius in angstroms.
+            max_rad: Maximum sphere radius in angstroms (None = auto from VOI diagonal).
         """
-        super(MbSphere, self).__init__(voi_shape, v_size, thick, layer_s)
-
-        if not isinstance(center, tuple) or (len(center) != 3):
-            raise TypeError(
-                "center must be a tuple of three floats (X, Y and Z)"
-            )
-        if not all(isinstance(c, (int, float)) for c in center):
-            raise TypeError("All dimensions of center must be floats")
-        if not isinstance(rad, (int, float)):
-            raise TypeError("rad must be a float")
-        if rad <= 0:
-            raise ValueError("rad must be positive")
-
-        self.__center = np.array([float(c) for c in center])
-        self.__rad = float(rad)
-        self._Mb__build()
-
-    def _Mb__build(self):
-        """Generates the density, mask and surface of the spherical membrane
-
-        Args:
-            None
-
-        Returns:
-            None
-        """
-
-        # Input parsing
-        t_v, s_v = (
-            0.5 * (self._Mb__thick / self._Mb__v_size),
-            self._Mb__layer_s / self._Mb__v_size,
+        super().__init__(
+            thick_rg=thick_rg,
+            layer_s_rg=layer_s_rg,
+            occ_rg=occ_rg,
+            over_tol=over_tol,
+            mb_den_cf_rg=mb_den_cf_rg,
         )
-        rad_v = self.__rad / self._Mb__v_size
+        self._min_radius = min_rad
+        self._max_radius = max_rad
+
+    @classmethod
+    def from_params(cls, params: dict) -> "SphGen":
+        """Create a SphGen from a parameter dictionary.
+
+        Args:
+            params: Dictionary with membrane parameters.
+
+        Returns:
+            SphGen instance.
+        """
+        return cls(
+            thick_rg=params.get("MB_THICK_RG", (25.0, 35.0)),
+            layer_s_rg=params.get("MB_LAYER_S_RG", (0.5, 2.0)),
+            occ_rg=params.get("MB_OCC_RG", (0.001, 0.003)),
+            over_tol=params.get("MB_OVER_TOL", 0.0),
+            mb_den_cf_rg=params.get("MB_DEN_CF_RG", (0.3, 0.5)),
+            min_rad=params.get("MB_MIN_RAD", 75.0),
+            max_rad=params.get("MB_MAX_RAD", None),
+        )
+
+    def _build(self, voi_shape: tuple[int, int, int], v_size: float) -> Mb:
+        """Generate a single spherical membrane with random parameters.
+
+        Args:
+            voi_shape: Volume shape (X, Y, Z) in voxels.
+            v_size: Voxel size in angstroms.
+
+        Returns:
+            Mb: Constructed membrane.
+        """
+        max_radius = (
+            self._max_radius
+            if self._max_radius is not None
+            else math.sqrt(3) * max(voi_shape) * v_size
+        )
+
+        radius = random.uniform(self._min_radius, max_radius)
+        center = np.array(
+            [
+                voi_shape[0] * v_size * random.random(),
+                voi_shape[1] * v_size * random.random(),
+                voi_shape[2] * v_size * random.random(),
+            ]
+        )
+        thick = random.uniform(self._thick_rg[0], self._thick_rg[1])
+        layer_s = random.uniform(self._layer_s_rg[0], self._layer_s_rg[1])
+
+        # --- geometry (unchanged) ---
+
+        t_v = 0.5 * thick / v_size
+        s_v = layer_s / v_size
+        rad_v = radius / v_size
         ao_v = rad_v + t_v
         ai_v = rad_v - t_v
-        ao_v_p1 = ao_v + 1
-        ao_v_m1 = ao_v - 1
-        ai_v_p1 = ai_v + 1
-        ai_v_m1 = ai_v - 1
-        p0_v = self.__center / self._Mb__v_size
+        ao_v_p1, ao_v_m1 = ao_v + 1, ao_v - 1
+        ai_v_p1, ai_v_m1 = ai_v + 1, ai_v - 1
+        p0_v = center / v_size
 
-        # Generating the bilayer
         dx, dy, dz = (
-            float(self._Mb__voi_shape[0]),
-            float(self._Mb__voi_shape[1]),
-            float(self._Mb__voi_shape[2]),
+            float(voi_shape[0]),
+            float(voi_shape[1]),
+            float(voi_shape[2]),
         )
         dx2, dy2, dz2 = (
             math.floor(0.5 * dx),
@@ -116,7 +146,7 @@ class MbSphere(Mb):
             indexing="ij",
         )
 
-        # Mask generation
+        # Mask
         R_o = (
             ((X - p0_v[0]) / ao_v) ** 2
             + ((Y - p0_v[1]) / ao_v) ** 2
@@ -127,27 +157,19 @@ class MbSphere(Mb):
             + ((Y - p0_v[1]) / ai_v) ** 2
             + ((Z - p0_v[2]) / ai_v) ** 2
         )
+        mask = np.logical_and(R_i >= 1, R_o <= 1)
 
-        self._Mb__mask = np.logical_and(R_i >= 1, R_o <= 1)
-
-        # Surface generation
+        # Surface
         R_i = (
             ((X - p0_v[0]) / rad_v) ** 2
             + ((Y - p0_v[1]) / rad_v) ** 2
             + ((Z - p0_v[2]) / rad_v) ** 2
         )
-        self._Mb__surf = iso_surface(R_i, 1)
+        surf = iso_surface(R_i, 1)
         add_sfield_to_poly(
-            self._Mb__surf,
-            self._Mb__mask,
-            "mb_mask",
-            dtype="int",
-            interp="NN",
-            mode="points",
+            surf, mask, "mb_mask", dtype="int", interp="NN", mode="points"
         )
-        self._Mb__surf = poly_threshold(
-            self._Mb__surf, "mb_mask", mode="points", low_th=0.5
-        )
+        surf = poly_threshold(surf, "mb_mask", mode="points", low_th=0.5)
 
         # Outer layer
         R_o = (
@@ -176,119 +198,18 @@ class MbSphere(Mb):
         G += np.logical_and(R_i >= 1, R_o <= 1)
 
         # Smoothing and normalization
-        self._Mb__density = lin_map(density_norm(sp.ndimage.gaussian_filter(G.astype(float), s_v), inv=True), ub=0, lb=1)
-
-
-    def __str__(self):
-        center_str = f"({self.__center[0]:.2f}, {self.__center[1]:.2f}, {self.__center[2]:.2f})"
-        return f"Membrane(Sphere), thickness={self._Mb__thick:.3f} Å, layer sigma={self._Mb__layer_s:.3f} Å, center={center_str}, radius={self.__rad:.3f} Å"
-
-
-@MbFactory.register("sphere")
-class SphGen(MbGen):
-    """
-    Spherical memrbrane generator class
-    """
-
-    def __init__(
-        self,
-        thick_rg: tuple[float, float],
-        layer_s_rg: tuple[float, float],
-        occ_rg: tuple[float, float],
-        over_tol: float,
-        mb_den_cf_rg: tuple[float, float],
-        min_rad: float,
-        max_rad: float = None,
-    ) -> None:
-        """
-        Constructor
-
-        Args:
-            thick_rg (tuple[float, float]): tuple with the min and max thickness values.
-            layer_s_rg (tuple[float, float]): tuple with the min and max layer sigma values.
-            occ_rg (tuple[float, float]): tuple with the min and max occupancy values.
-            over_tol (float): overlap tolerance for the membrane set.
-            mb_den_cf_rg (tuple[float, float]): tuple with the min and max membrane density contrast values.
-            min_rad (float): minimum radius of the sphere in angstroms.
-            max_rad (float, optional): maximum radius of the sphere in angstroms.
-
-        Returns:
-            None
-        """
-
-        super(SphGen, self).__init__(
-            thick_rg=thick_rg,
-            layer_s_rg=layer_s_rg,
-            occ_rg=occ_rg,
-            over_tol=over_tol,
-            mb_den_cf_rg=mb_den_cf_rg,
-        )
-        self.__min_radius, self.__max_radius = min_rad, max_rad
-
-    @classmethod
-    def from_params(cls, params: dict) -> MbGen:
-        """
-        Creates a SphGen object from a dictionary of parameters
-
-        Args:
-            params (dict): dictionary with the membrane parameters
-
-        Returns:
-            SphGen: SphGen object
-        """
-
-        thick_rg = params.get("MB_THICK_RG", (25.0, 35.0))
-        layer_s_rg = params.get("MB_LAYER_S_RG", (0.5, 2.0))
-        occ_rg = params.get("MB_OCC_RG", (0.001, 0.003))
-        over_tol = params.get("MB_OVER_TOL", 0.0)
-        mb_den_cf_rg = params.get("MB_DEN_CF_RG", (0.3, 0.5))
-        min_rad = params.get("MB_MIN_RAD", 75.0)
-        max_rad = params.get("MB_MAX_RAD", None)
-
-        return cls(
-            thick_rg=thick_rg,
-            layer_s_rg=layer_s_rg,
-            occ_rg=occ_rg,
-            over_tol=over_tol,
-            mb_den_cf_rg=mb_den_cf_rg,
-            min_rad=min_rad,
-            max_rad=max_rad,
+        density = lin_map(
+            density_norm(gaussian_filter(G.astype(float), s_v), inv=True),
+            ub=0,
+            lb=1,
         )
 
-    def generate(self, voi_shape: tuple, v_size: float) -> MbSphere:
-        """
-        Generates a spherical membrane with random parameters within the input volume of interest shape
-
-        Args:
-            voi_shape: shape of the volume of interest
-            v_size: voxel size
-
-        Returns:
-            MbSphere: generated spherical membrane
-        """
-        if self.__max_radius is None:
-            self.__max_radius = math.sqrt(3) * max(voi_shape) * v_size
-
-        radius = random.uniform(self.__min_radius, self.__max_radius)
-        center = tuple(
-            (
-                voi_shape[0] * v_size * random.random(),
-                voi_shape[1] * v_size * random.random(),
-                voi_shape[2] * v_size * random.random(),
-            )
-        )
-        thick = random.uniform(
-            self._MbGen__thick_rg[0], self._MbGen__thick_rg[1]
-        )
-        layer_s = random.uniform(
-            self._MbGen__layer_s_rg[0], self._MbGen__layer_s_rg[1]
-        )
-
-        return MbSphere(
+        return Mb(
             voi_shape=voi_shape,
             v_size=v_size,
             thick=thick,
             layer_s=layer_s,
-            center=center,
-            rad=radius,
+            density=density,
+            mask=mask,
+            surf=surf,
         )

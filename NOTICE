@@ -1,0 +1,21 @@
+PolNet
+Copyright 2023 Antonio Martinez-Sanchez
+
+This product is licensed under the Apache License, Version 2.0.
+See LICENSE for the full license text.
+
+=========================================================================
+Third-party software bundled with this distribution
+=========================================================================
+
+curvatubes (cvtub)
+  Location:  src/external/cvtub/
+  License:   MIT
+  Copyright: (c) 2021 Anna Song
+  Upstream:  https://github.com/annasongmaths/curvatubes
+
+  The full MIT license text is included at src/external/cvtub/LICENSE.
+  Each changed line from the original source is marked with a
+  "# polnet: relative import" comment.
+
+=========================================================================

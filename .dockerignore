@@ -1,20 +1,34 @@
-# .gitignore
+# Version control
+.git/
+.github/
+.gitignore
 
-__pycache__
-.vs
-venv
-.venv
-*venv*
+# Virtual environments
+.venv/
+.format/
+venv/
 
+# IDE
+.idea/
+.vscode/
 
-*.bin
-*.hdf5
-*.h5
-*.png
-#*.sh
-*.pth
-*.csv
+# Caches and build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+docs/build/
 
+# Generated output (not needed in image)
+results/
+data/data_generated/
+data/output/
+
+# Docker files (avoid recursive context)
+docker/
+
+# Development files
+tests/
+scripts/
 *.swp
-
-VOCdevkit/

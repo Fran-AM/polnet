@@ -1,1 +1,4 @@
-docker build . -t polnet_docker
+#!/usr/bin/env bash
+set -euo pipefail
+# Run from project root
+docker build -f docker/Dockerfile -t polnet_docker .

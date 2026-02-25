@@ -1,0 +1,72 @@
+# Curvatubes phase-field membrane
+# Generates a membrane that fills the entire tomogram volume via
+# gradient descent on a curvature functional.
+#
+# References:
+#   Song, A. (2021). "Generation of Tubular and Membranous Shape
+#   Textures with Curvature Functionals." JMIV, 64(1), 17-40.
+#   https://github.com/annasongmaths/curvatubes
+#   License: MIT -- Copyright (c) 2021 Anna SONG
+
+MB_TYPE = curvatubes
+
+# ---- Common membrane bilayer parameters ----
+MB_LAYER_S_RG = (0.5, 2)          # Gaussian sigma for each layer (A)
+MB_THICK_RG = (25, 35)            # Bilayer thickness range (A)
+MB_OCC_RG = (0.001, 0.003)        # Target occupancy (unused for curvatubes)
+MB_OVER_TOL = 0                    # Overlap tolerance
+MB_DEN_CF_RG = (0.3, 0.5)         # Density contrast factor range
+
+# ---- Curvatubes parameterisation ----
+# Choose 'polynomial' for raw curvature coefficients or
+# 'helfrich' for the standard biophysics parameterisation.
+CT_PARAMETERIZATION = polynomial
+
+# ---- Phase-field parameters ----
+CT_EPS = 0.15                      # Diffuse interface width (epsilon)
+CT_DELTA_X = 0.03                  # Mathematical length per pixel
+CT_XI = 1e-6                       # Regularisation parameter
+CT_M0 = -0.5                       # Average mass level (-1 to 1)
+
+# ---- Optimisation ----
+CT_OPTIM_METHOD = adam              # 'adam' or 'bfgs'
+CT_FLOW_TYPE = averm0               # 'L2', 'averm0', or 'cons'
+CT_MODE = periodic                  # 'periodic' or 'replicate'
+CT_MAXEVAL = 6000                   # Maximum evaluations (recommended: 6000)
+CT_INFORM_EVERY = 500               # Log progress every N evals (0 = off)
+CT_LR = 0.05                       # Learning rate
+CT_SIGMA_BLUR = 1.0                # Gaussian blur sigma (pixels)
+
+# ---- Random initialisation ----
+# Fraction of +1 pixels.  Defaults to (1 + M0)/2 when omitted,
+# so the initial mean matches the target mass level.
+# CT_INIT_PROP = 0.25
+
+# ---- Polynomial coefficients ----
+# F(S) = integral { a20*k1^2 + a11*k1*k2 + a02*k2^2
+#                  + b10*k1 + b01*k2 + c } dH^2
+# The defaults below give a Willmore-like energy that
+# penalises bending and produces smooth membrane surfaces.
+CT_A20 = 1.0
+CT_A11 = 0.0
+CT_A02 = 1.0
+CT_B10 = 0.0
+CT_B01 = 0.0
+CT_C = 0.0
+
+# ---- Helfrich parameters (used when CT_PARAMETERIZATION = helfrich) ----
+# F_H = integral { kappa_b/2 * (H - H0)^2 + kappa_G * K } dA
+# CT_KAPPA_B = 20.0                # Bending rigidity
+# CT_KAPPA_G = 0.0                 # Gaussian curvature modulus
+# CT_H0 = 0.0                     # Spontaneous curvature
+
+# ---- Adam-specific (optional) ----
+# CT_BETAS = (0.9, 0.999)
+# CT_EPS_ADAM = 1e-8
+# CT_WEIGHT_DECAY = 0.0
+# CT_AMSGRAD = False
+
+# ---- BFGS-specific (optional) ----
+# CT_BFGS_MAX_ITER = 20
+# CT_HISTORY_SIZE = 100
+# CT_LINE_SEARCH_FN = strong_wolfe

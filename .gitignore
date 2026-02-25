@@ -1,23 +1,38 @@
-#Caches
-*__pycache__*
-*pytest_cache*
+# Caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
 
 # Distribution / packaging
 *.egg-info/
 *.egg
+dist/
+build/
 
 # Virtual environments
-*venv*
-bin
-include
-lib
-lib64
-share
-etc
+.venv/
+.format/
+venv/
 
-# Data
-data_generated
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
 
-# Files
-pyvenv.cfg
-polnet/_version.py
+# Generated output
+results/
+data/data_generated/
+data/output/
+
+# Sphinx build output
+docs/build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Version control
+.git/
+.github/

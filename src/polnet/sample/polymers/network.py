@@ -1,10 +1,22 @@
-from abc import ABC, abstractmethod
+"""Abstract network of polymer chains inside a 3-D VOI.
+
+Defines :class:`Network`, the abstract base class for all polymer
+network types.  Subclasses implement :meth:`build_network` to
+distribute chains within a volumetric occupancy limit.
+
+:author: Antonio Martinez-Sanchez
+:maintainer: Juan Diego Gallego Nicolás
+"""
+
+from abc import (
+    ABC,
+    abstractmethod,
+)
 
 import numpy as np
-import scipy as sp
 import vtk
+from scipy.ndimage import binary_dilation as sp_binary_dilation
 
-from ...utils import poly as pp
 from ...utils.affine import tomo_rotate
 from ...utils.utils import insert_svol_tomo
 
@@ -12,154 +24,237 @@ NET_TYPE_STR = "net_type"
 
 
 class Network(ABC):
-    """
-    General class for a network of polymers
+    """Abstract base class for a network of polymers.
+
+    Subclasses must implement :meth:`build_network`.
+
+    Protected attributes (available to subclasses via ``self._name``):
+        _voi:         boolean 3D VOI array.
+        _vol:         VOI volume in cubic Angstroms.
+        _v_size:      voxel size in Angstroms.
+        _pl_occ:      current polymer occupancy percentage.
+        _pl:          list of Polymer instances.
+        _pl_nmmers:   list of monomer counts (one per polymer).
+        _svol:        monomer subvolume reference (ndarray or None).
+        _min_nmmer:   minimum monomers per polymer to keep it.
+        _poly_area:   total surface area for membrane-bound occupancy.
+        _pmer_fails:  count of failed polymer placement attempts.
     """
 
     def __init__(self, voi, v_size, svol=None):
-        """
-        Construction
+        """Initialise a polymer network inside a 3-D VOI.
 
-        :param voi: a 3D numpy array to define a VOI (Volume Of Interest) for polymers
-        :param v_size: voxel size (default 1)
-        :param svol: monomer subvolume (or list of) as a numpy ndarray (default None)
-        :param mb_area: total membrane area within the same VOI as the network (deftault None)
+        Args:
+            voi (numpy.ndarray): 3-D boolean (or numeric) array
+                defining the placement volume; non-zero voxels are
+                treated as True.
+            v_size (float): Voxel size in Angstroms.
+            svol (numpy.ndarray | list | None): Reference monomer
+                sub-volume(s) (default None).
+
+        Raises:
+            TypeError: If svol is provided but is not a numpy array.
         """
         self.set_voi(voi)
-        self.__vol = (
-            float((self.__voi > 0).sum()) * v_size * v_size * v_size
-        )  # withou the float cast is my raise overflow warning in Windows
-        self.__v_size = v_size
-        self.__pl_occ = 0
-        self.__pl = list()
-        self.__pl_nmmers = list()
-        self.__svol = svol
-        if self.__svol is not None:
+        # float cast avoids overflow warning on Windows for large VOIs
+        self._vol = float((self._voi > 0).sum()) * v_size * v_size * v_size
+        self._v_size = v_size
+        self._pl_occ = 0
+        self._pl = list()
+        self._pl_nmmers = list()
+        self._svol = svol
+        if self._svol is not None:
             if not hasattr(svol, "__len__"):
-                assert isinstance(self.__svol, np.ndarray)
-        self.__min_nmmer = 1
-        self.__poly_area = 0
-        self.__pmer_fails = 0
+                if not isinstance(self._svol, np.ndarray):
+                    raise TypeError("svol must be a numpy array.")
+        self._min_nmmer = 1
+        self._poly_area = 0
+        self._pmer_fails = 0
+
+    # ── configuration ─────────────────────────────────────────────
 
     def set_min_nmmer(self, min_nmmer):
-        """
-        Set a minimum number of monomers for the generated filaments
+        """Set the minimum monomer count for a polymer to be kept.
 
-        :param min_nmmer: integer with the minimum number of monomenrs per filament
-        :return:
-        """
-        self.__min_nmmer = int(min_nmmer)
+        Polymers shorter than this threshold are discarded during
+        :meth:`build_network`.
 
-    def get_pmer_fails(self):
-        return self.__pmer_fails
-
-    def get_pmers_list(self):
-        return self.__pl
-
-    def get_num_pmers(self):
+        Args:
+            min_nmmer (int): Minimum number of monomers per chain.
         """
-        :return: the number of polymers in the network
-        """
-        return len(self.__pl)
+        self._min_nmmer = int(min_nmmer)
 
-    def get_num_mmers(self):
+    def set_voi(self, voi):
+        """Replace the network's Volume Of Interest.
+
+        Non-boolean inputs are binarised as voi > 0.
+
+        Args:
+            voi (numpy.ndarray): New VOI array (bool or numeric).
         """
-        :return: the number of monomers in the network
+        if voi.dtype != bool:
+            self._voi = voi > 0
+        else:
+            self._voi = voi
+
+    # ── public query methods ──────────────────────────────────────
+
+    @property
+    def pmer_fails(self):
+        """Return the number of failed polymer placement attempts."""
+        return self._pmer_fails
+
+    @property
+    def pmers_list(self):
+        """Return the list of all polymer chains in the network."""
+        return self._pl
+
+    @property
+    def num_pmers(self):
+        """Return the number of polymer chains in the network.
+
+        Returns:
+            int: Polymer count.
+        """
+        return len(self._pl)
+
+    @property
+    def num_mmers(self):
+        """Return the total number of monomers across all chains.
+
+        Returns:
+            int: Total monomer count.
         """
         count_mmers = 0
-        for pl in self.__pl:
-            count_mmers += pl.get_num_mmers()
+        for pl in self._pl:
+            count_mmers += pl.num_mmers
         return count_mmers
 
-    def get_polymer_occupancy(self):
-        return self.__pl_occ
+    @property
+    def polymer_occupancy(self):
+        """Return the current polymer occupancy as a percentage."""
+        return self._pl_occ
+
+    @property
+    def voi(self):
+        """Return the current Volume Of Interest array.
+
+        Returns:
+            numpy.ndarray: Boolean 3-D VOI mask.
+        """
+        return self._voi
+
+    # ── mutation ──────────────────────────────────────────────────
 
     def add_polymer(self, polymer, occ_mode="volume"):
-        """
-        Add a new polymer to the network
+        """Register a polymer chain and update occupancy tracking.
 
-        :param polymer: polymer to add
-        :param occ_mode: occupancy mode, valid: 'volume' (default), 'area' for membrane-bound polymer
-        :return:
+        Args:
+            polymer (Polymer): The polymer to register.
+            occ_mode (str): Occupancy accumulation basis: 'volume'
+                (default, vol/total_vol × 100) or 'area' for
+                membrane-bound polymers (area/total_area × 100).
+
+        Raises:
+            ValueError: If occ_mode is neither 'volume' nor 'area'.
         """
-        assert (occ_mode == "volume") or (occ_mode == "area")
-        self.__pl.append(polymer)
-        self.__pl_nmmers.append(polymer.get_num_mmers())
+        if occ_mode not in ("volume", "area"):
+            raise ValueError("occ_mode must be 'volume' or 'area'.")
+        self._pl.append(polymer)
+        self._pl_nmmers.append(polymer.num_mmers)
         if occ_mode == "volume":
-            self.__pl_occ += 100.0 * (polymer.get_vol() / self.__vol)
+            self._pl_occ += 100.0 * (polymer.vol / self._vol)
+        # NOTE: Polymer.get_area(mode) is a method, not a property
         else:
-            self.__pl_occ += 100.0 * (
-                polymer.get_area() / self._Network__poly_area
-            )
-        # print('Occ: ', self.__pl_occ)
+            self._pl_occ += 100.0 * (polymer.get_area() / self._poly_area)
+
+    # ── abstract interface ────────────────────────────────────────
 
     @abstractmethod
     def build_network(self):
+        """Populate the network with polymers up to the target occupancy.
+
+        Subclasses must implement this method to drive chain growth
+        using the specific geometric model (e.g. SAWLC fibers,
+        membrane-attached chains).
+
+        Raises:
+            NotImplementedError: Always, when called on the base
+                class.
         """
-        Builds an instance of the network
+        raise NotImplementedError(
+            "Subclasses must implement build_network method."
+        )
 
-        :return: None"""
-        raise NotImplementedError("Subclasses must implement build_network method.")
+    # ── VTK output ────────────────────────────────────────────────
 
-    def get_voi(self):
+    @property
+    def vtp(self):
+        """Build a labelled vtkPolyData merging all polymer surfaces.
+
+        Returns:
+            vtk.vtkPolyData: Combined polygon dataset, or an empty
+                poly if the network has no polymers.
         """
-        Get the VOI
-
-        :return: an ndarray
-        """
-        return self.__voi
-
-    def get_gtruth(self, thick=1):
-        """
-        Get the ground truth tomogram
-
-        :param thick: ground truth tickness in voxels (default 1)
-        :return: a binary numpy 3D array
-        """
-        hold_gtruth = self.gen_vtp_points_tomo()
-        if thick >= 1:
-            hold_gtruth = sp.ndimage.morphology.binary_dilation(
-                hold_gtruth, iterations=int(thick)
-            )
-        return hold_gtruth
-
-    def set_voi(self, voi):
-        """
-        Set the VOI
-
-        :param voi:
-        """
-        assert isinstance(voi, np.ndarray)
-        if voi.dtype is bool:
-            self.__voi = voi
-        else:
-            self.__voi = voi > 0
-
-    def get_vtp(self):
-        if len(self.__pl) == 0:
+        if len(self._pl) == 0:
             return vtk.vtkPolyData()
         app_flt = vtk.vtkAppendPolyData()
-        for pol in self.__pl:
-            app_flt.AddInputData(pol.get_vtp())
+        for pol in self._pl:
+            app_flt.AddInputData(pol.vtp)
         app_flt.Update()
         return app_flt.GetOutput()
 
     def get_skel(self, add_verts=True, add_lines=True, verts_rad=0):
-        if len(self.__pl) == 0:
+        """Build a skeleton vtkPolyData for all polymers in the network.
+
+        Args:
+            add_verts (bool): Include vertex glyphs (default True).
+            add_lines (bool): Include connecting lines (default True).
+            verts_rad (float): Sphere radius for vertex glyphs (default 0).
+
+        Returns:
+            vtk.vtkPolyData: Combined skeleton dataset.
+        """
+        if len(self._pl) == 0:
             return vtk.vtkPolyData()
         app_flt = vtk.vtkAppendPolyData()
-        for pol in self.__pl:
+        for pol in self._pl:
             app_flt.AddInputData(pol.get_skel(add_verts, add_lines, verts_rad))
         app_flt.Update()
         return app_flt.GetOutput()
 
-    def gen_vtp_points_tomo(self):
-        """
-        Generates a binary tomogram where True elements correspond with the polydata closes voxel projection
+    def get_gtruth(self, thick=1):
+        """Generate a binary ground-truth tomogram for this network.
 
-        :return: a binary VOI shaped numpy array
+        Project the skeleton voxel positions into a boolean volume
+        and optionally dilate to produce a thicker ground truth.
+
+        Args:
+            thick (int): Dilation iterations for thickness in
+                voxels (default 1, meaning 1-voxel skeleton).
+
+        Returns:
+            numpy.ndarray: 3-D boolean ground-truth array.
         """
-        nx, ny, nz = self.__voi.shape
+        hold_gtruth = self.gen_vtp_points_tomo()
+        if thick >= 1:
+            hold_gtruth = sp_binary_dilation(
+                hold_gtruth, iterations=int(thick)
+            )
+        return hold_gtruth
+
+    def gen_vtp_points_tomo(self):
+        """Project skeleton vertices into a binary VOI-shaped tomogram.
+
+        Each skeleton point coordinate is rounded to the nearest
+        voxel and set to True; out-of-bounds points are silently
+        ignored.
+
+        Returns:
+            numpy.ndarray: Boolean 3-D array with the same shape as
+                the VOI.
+        """
+        nx, ny, nz = self._voi.shape
         hold_tomo = np.zeros(shape=(nx, ny, nz), dtype=bool)
         hold_vtp_skel = self.get_skel()
         for i in range(hold_vtp_skel.GetNumberOfPoints()):
@@ -176,48 +271,72 @@ class Network(ABC):
                 hold_tomo[x, y, z] = True
         return hold_tomo
 
+    # ── density stamping ──────────────────────────────────────────
+
     def insert_density_svol(
         self, m_svol, tomo, v_size=1, merge="max", off_svol=None
     ):
-        """
-        Insert a polymer network as set of subvolumes into a tomogram
+        """Stamp all polymers in the network into a target tomogram.
 
-        :param m_svol: input monomer (or list) sub-volume reference
-        :param tomo: tomogram where m_svol is added
-        :param v_size: tomogram voxel size (default 1)
-        :param merge: merging mode, valid: 'min' (default), 'max', 'sum' and 'insert'
-        :param off_svol: offset coordinates for sub-volume monomer center coordinates
+        Args:
+            m_svol (numpy.ndarray | list[numpy.ndarray]): Reference
+                monomer sub-volume(s).
+            tomo (numpy.ndarray): Target tomogram modified in place.
+            v_size (float): Voxel size in Angstroms (default 1).
+            merge (str): Blending strategy: 'max' (default), 'min',
+                'sum', or 'insert'.
+            off_svol (array-like, optional): Offset for sub-volume
+                centre coordinates.
+
+        Raises:
+            TypeError: If m_svol, tomo, or off_svol are of wrong
+                type.
+            ValueError: If merge is invalid or v_size <= 0.
         """
         if not hasattr(m_svol, "__len__"):
-            assert isinstance(m_svol, np.ndarray) and (len(m_svol.shape) == 3)
-        assert isinstance(tomo, np.ndarray) and (len(tomo.shape) == 3)
-        assert (
-            (merge == "max")
-            or (merge == "min")
-            or (merge == "sum")
-            or (merge == "insert")
-        )
-        assert v_size > 0
+            if not isinstance(m_svol, np.ndarray) or m_svol.ndim != 3:
+                raise TypeError("m_svol must be a 3-D numpy array.")
+        if not isinstance(tomo, np.ndarray) or tomo.ndim != 3:
+            raise TypeError("tomo must be a 3-D numpy array.")
+        if merge not in ("max", "min", "sum", "insert"):
+            raise ValueError(
+                "merge must be 'max', 'min', 'sum' " "or 'insert'."
+            )
+        if v_size <= 0:
+            raise ValueError("v_size must be > 0.")
         if off_svol is not None:
-            assert isinstance(off_svol, np.ndarray) and (len(off_svol) == 3)
+            if not isinstance(off_svol, np.ndarray) or len(off_svol) != 3:
+                raise TypeError(
+                    "off_svol must be a numpy array " "with 3 elements."
+                )
 
-        for pl in self.__pl:
+        for pl in self._pl:
             pl.insert_density_svol(
                 m_svol, tomo, v_size, merge=merge, off_svol=off_svol
             )
 
     def add_monomer_to_voi(self, mmer, mmer_svol=None):
-        """
-        Adds a monomer to VOI mask
+        """Carve a monomer's footprint out of the VOI mask.
 
-        :param mmer: monomer to define rigid transformations
-        :param mmer_voi: subvolume (binary numpy ndarray) with monomer VOI
+        Replays the monomer's transformation queue on the binary
+        sub-volume and stamps it into the VOI with merge='min' to
+        mark occupied voxels as False.
+
+        Args:
+            mmer (Monomer): Monomer whose transformation queue is
+                replayed.
+            mmer_svol (numpy.ndarray): Binary boolean sub-volume
+                representing the monomer's spatial footprint.
+
+        Raises:
+            TypeError: If mmer_svol is not a boolean numpy array.
         """
-        assert isinstance(mmer_svol, np.ndarray) and (mmer_svol.dtype == bool)
-        v_size_i = 1.0 / self.__v_size
+        if not isinstance(mmer_svol, np.ndarray) or mmer_svol.dtype != bool:
+            raise TypeError("mmer_svol must be a boolean numpy " "array.")
+        v_size_i = 1.0 / self._v_size
         tot_v = np.asarray((0.0, 0.0, 0.0))
         hold_svol = mmer_svol > 0
-        for trans in mmer.get_trans_list():
+        for trans in mmer.trans_list:
             if trans[0] == "t":
                 tot_v += trans[1] * v_size_i
             elif trans[0] == "r":
@@ -229,21 +348,23 @@ class Network(ABC):
                     cval=hold_svol.max(),
                     prefilter=False,
                 )
-                # hold_svol = tomo_rotate(hold_svol, trans[1], mode='constant', cval=hold_svol.min())
-        insert_svol_tomo(hold_svol, self.__voi, tot_v, merge="min")
+        insert_svol_tomo(hold_svol, self._voi, tot_v, merge="min")
+
+    # ── statistics ────────────────────────────────────────────────
 
     def count_proteins(self):
-        """
-        Genrrates output statistics for this network
+        """Collect per-ID monomer count statistics for this network.
 
-        :return: a dictionary with the number of proteins for protein id
+        Returns:
+            dict[int, int]: Mapping from monomer ID to the number
+                of monomers with that ID placed in the network.
         """
         counts = dict()
-        for pl in self.__pl:
-            ids = pl.get_mmer_ids()
-            for id in ids:
+        for pl in self._pl:
+            ids = pl.mmer_ids
+            for mmer_id in ids:
                 try:
-                    counts[id] += 1
+                    counts[mmer_id] += 1
                 except KeyError:
-                    counts[id] = 1
+                    counts[mmer_id] = 1
         return counts

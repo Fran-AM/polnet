@@ -1,36 +1,28 @@
-# Read the arguments for the config yaml file and outdir
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() { echo "Usage: $0 --config <yaml> --out_dir <dir> [--data_dir <dir>]"; exit 1; }
+
 while [[ $# -gt 0 ]]; do
-    key="$1"
-    case $key in
-        --config)
-            config_file="$2"
-            shift # past argument
-            shift # past value
-            ;;
-        --out_dir)
-            out_dir="$2"
-            shift # past argument
-            shift # past value
-            ;;
-        *)    # unknown option
+    case "$1" in
+        --config)   config_file="$2"; shift 2 ;;
+        --out_dir)  out_dir="$2";     shift 2 ;;
+        --data_dir) data_dir="$2";    shift 2 ;;
+        *) usage ;;
     esac
 done
 
-# Check if the config file argument is provided
-if [[ -z $config_file ]]; then
-    echo "Error: Config file argument (--config) is missing."
-    exit 1
-fi
+[[ -z "${config_file:-}" ]] && usage
+[[ -z "${out_dir:-}" ]]     && usage
 
-# Check if the outdir argument is provided
-if [[ -z $out_dir ]]; then
-    echo "Error: Outdir argument (--out_dir) is missing."
-    exit 1
-fi
+mounts=(
+    -v "$(realpath "$config_file")":/app/generation_config.yaml:ro
+    -v "$(realpath "$out_dir")":/app/outdir
+)
+[[ -n "${data_dir:-}" ]] && mounts+=(-v "$(realpath "$data_dir")":/app/data:ro)
 
-# prints ids
-echo "myUID: $(id -u)"
-echo "myGID: $(id -g)"
-
-# Run the docker container with the provided config file and outdir
-docker run -e PYTHONUNBUFFERED=1 -v "$config_file":/app/generation_config.yaml -v "$out_dir":/app/outdir --user $(id -u):$(id -g) polnet_docker
+docker run --rm \
+    -e PYTHONUNBUFFERED=1 \
+    --user "$(id -u):$(id -g)" \
+    "${mounts[@]}" \
+    polnet_docker /app/generation_config.yaml

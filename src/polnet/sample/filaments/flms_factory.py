@@ -1,8 +1,33 @@
-from .fiber_unit import FiberUnitSDimer, MTUnit
-from .flms_gen import FlmsParamGen, HxParamGenBranched
-from .flms_network import NetHelixFiber, NetHelixFiberB
+"""Factory for helical filament networks.
+
+:class:`FlmsFactory` instantiates the correct fiber unit,
+parameter generator, and network class (microtubule ``"mt"`` or
+actin ``"actin"``) from a parsed ``.flms`` configuration dict.
+
+:author: Antonio Martinez-Sanchez
+:maintainer: Juan Diego Gallego Nicolás
+"""
+
+from .fiber_unit import (
+    FiberUnitSDimer,
+    MTUnit,
+)
+from .flms_gen import (
+    FlmsParamGen,
+    HxParamGenBranched,
+)
+from .flms_network import (
+    NetHelixFiber,
+    NetHelixFiberB,
+)
+
 
 class FlmsFactory:
+    """Factory for creating helical filament network components.
+
+    Instantiates the correct fiber unit, parameter generator, and
+    network class from a parsed ``.flms`` configuration dict.
+    """
 
     @classmethod
     def create(cls, hx_type: str, params: dict, v_size: float):
@@ -17,7 +42,8 @@ class FlmsFactory:
             param_gen = FlmsParamGen()
             net_cls = NetHelixFiber
             net_kwargs = dict(
-                unit_diam=(params["MT_RAD"] + 0.5 * params["HX_MMER_RAD"]) * 2.4,
+                unit_diam=(params["MT_RAD"] + 0.5 * params["HX_MMER_RAD"])
+                * 2.4,
             )
         elif hx_type == "actin":
             fiber_unit = FiberUnitSDimer(

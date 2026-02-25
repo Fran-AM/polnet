@@ -1,45 +1,72 @@
+"""Abstract fiber unit and concrete implementations.
+
+Defines :class:`FiberUnit` (abstract), :class:`FiberUnitSDimer`
+(actin-like S-dimer), and :class:`MTUnit` (microtubule-like unit).
+Each subclass generates the VTK surface and density sub-volume
+for a single polymer repeat unit.
+
+:author: Antonio Martinez-Sanchez
+:maintainer: Juan Diego Gallego Nicolás
+"""
+
 import math
-from abc import ABC, abstractmethod
+from abc import (
+    ABC,
+    abstractmethod,
+)
 
 import numpy as np
 
-from ...utils.utils import (
-    lin_map
-)
-
-from ...utils.poly import (
+from ...utils.affine import (
     poly_scale,
     poly_translate,
-    iso_surface
+)
+from ...utils.utils import (
+    lin_map,
+    iso_surface,
 )
 
+
 class FiberUnit(ABC):
-    """
-    Abstract class to generate fiber unit (set of monomers)
+    """Abstract base class for fiber structural units.
+
+    Concrete subclasses generate the VTK surface and density
+    sub-volume for a single polymer repeat unit.
     """
 
+    @property
     @abstractmethod
-    def get_vtp(self):
+    def vtp(self):
         raise NotImplementedError
 
+    @property
     @abstractmethod
-    def get_tomo(self):
+    def tomo(self):
         raise NotImplementedError
 
 
 class FiberUnitSDimer(FiberUnit):
-    """
-    Class for modeling a fiber unit as dimer of two spheres
+    """Actin-like fiber unit modelled as a sphere dimer.
+
+    The two overlapping spheres are defined via a logistic
+    function on a 3-D grid, producing a smooth density envelope
+    suitable for cryo-ET simulation.
     """
 
     def __init__(self, sph_rad, v_size=1):
-        """
-        Constructor
+        """Initialise the sphere-dimer fiber unit.
 
-        :param sph_rad: radius for spheres
-        :param v_size: voxel size (default 1)
+        Args:
+            sph_rad (float): Sphere radius in Angstroms; must be
+                > 0.
+            v_size (float): Voxel size in Angstroms (default 1);
+                must be > 0.
+
+        Raises:
+            ValueError: If sph_rad <= 0 or v_size <= 0.
         """
-        assert (sph_rad > 0) and (v_size > 0)
+        if sph_rad <= 0 or v_size <= 0:
+            raise ValueError("sph_rad and v_size must be > 0.")
         self.__sph_rad, self.__v_size = float(sph_rad), float(v_size)
         self.__size = int(math.ceil(6.0 * (sph_rad / v_size)))
         if self.__size % 2 != 0:
@@ -47,10 +74,12 @@ class FiberUnitSDimer(FiberUnit):
         self.__tomo, self.__surf = None, None
         self.__gen_sdimer()
 
-    def get_vtp(self):
+    @property
+    def vtp(self):
         return self.__surf
 
-    def get_tomo(self):
+    @property
+    def tomo(self):
         return self.__tomo
 
     def __gen_sdimer(self):
@@ -87,19 +116,11 @@ class FiberUnitSDimer(FiberUnit):
         X += 0.5
         Y += 0.5
         Z += 0.5
-        # X, Y, Z = X.astype(np.float16), Y.astype(np.float16), X.astype(np.float16)
 
-        # from polnet import lio
-
-        # Generate the first unit
         Yh = Y + sph_rad_v
         R = X * X + Yh * Yh + Z * Z - sph_rad_v2
 
-        # lio.write_mrc(R.astype(np.float32), '/fs/pool/pool-lucic2/antonio/polnet/riboprot/synth_all/hold_R1.mrc')
-
         self.__tomo += 1.0 / (1.0 + np.exp(-R))
-
-        # lio.write_mrc(self.__tomo.astype(np.float32), '/fs/pool/pool-lucic2/antonio/polnet/riboprot/synth_all/hold_R2.mrc')
 
         # Generate the second unit
         Yh = Y - sph_rad_v
@@ -107,16 +128,8 @@ class FiberUnitSDimer(FiberUnit):
         self.__tomo += 1.0 / (1.0 + np.exp(-R))
 
         # Generating the surfaces
-        self.__tomo = lin_map(
-            self.__tomo, lb=1, ub=0
-        )  # self.__tomo = lin_map(self.__tomo, lb=0, ub=1)
-        self.__surf = iso_surface(
-            self.__tomo, 0.25
-        )  # self.__surf = iso_surface(self.__tomo, .75)
-
-        # lio.write_mrc(self.__tomo, '/fs/pool/pool-lucic2/antonio/polnet/riboprot/synth_all/hold_funit1.mrc')
-        # lio.save_vtp(self.__surf, '/fs/pool/pool-lucic2/antonio/polnet/riboprot/synth_all/hold_funit1.vtp')
-
+        self.__tomo = lin_map(self.__tomo, lb=1, ub=0)
+        self.__surf = iso_surface(self.__tomo, 0.25)
         self.__surf = poly_scale(self.__surf, self.__v_size)
         self.__surf = poly_translate(
             self.__surf,
@@ -125,20 +138,32 @@ class FiberUnitSDimer(FiberUnit):
 
 
 class MTUnit(FiberUnit):
-    """
-    Class for modelling a fiber unit for microtubules (MTs)
+    """Microtubule-like fiber unit composed of n_units protofilaments.
+
+    Each protofilament is represented as a sphere placed at the
+    appropriate angular position on a circle of radius mt_rad.
+    The logistic-function density envelope approximates the
+    hollow cylindrical cross-section of a microtubule.
     """
 
     def __init__(self, sph_rad=40, mt_rad=100.5, n_units=13, v_size=1):
-        """
-        Constructor
+        """Initialise the microtubule fiber unit.
 
-        :param sph_rad: radius for spheres (default 40, approximate tubulin radius in A)
-        :param mt_rad: microtubule radius (default 100.5, approximate microtubule radius in A)
-        :param n_units: number of units (default 13, number of protofilaments that compund a MT)
-        :param v_size: voxel size (default 1)
+        Args:
+            sph_rad (float): Tubulin monomer sphere radius in
+                Angstroms (default 40).
+            mt_rad (float): Microtubule protofilament ring radius
+                in Angstroms (default 100.5).
+            n_units (int): Number of protofilaments (default 13).
+            v_size (float): Voxel size in Angstroms (default 1).
+
+        Raises:
+            ValueError: If any parameter is <= 0.
         """
-        assert (sph_rad > 0) and (mt_rad > 0) and (n_units > 0) and (v_size > 0)
+        if sph_rad <= 0 or mt_rad <= 0 or n_units <= 0 or v_size <= 0:
+            raise ValueError(
+                "sph_rad, mt_rad, n_units and " "v_size must be > 0."
+            )
         self.__sph_rad, self.__mt_rad, self.__n_units, self.__v_size = (
             float(sph_rad),
             float(mt_rad),
@@ -151,10 +176,12 @@ class MTUnit(FiberUnit):
         self.__tomo, self.__surf = None, None
         self.__gen_sdimer()
 
-    def get_vtp(self):
+    @property
+    def vtp(self):
         return self.__surf
 
-    def get_tomo(self):
+    @property
+    def tomo(self):
         return self.__tomo
 
     def __gen_sdimer(self):
@@ -189,12 +216,11 @@ class MTUnit(FiberUnit):
             np.arange(x_l, x_h),
             np.arange(y_l, y_h),
             np.arange(z_l, z_h),
-            indexing="xy", # Indexing xy inside the local grid
+            indexing="xy",  # Indexing xy inside the local grid
         )
         X += 0.5
         Y += 0.5
         Z += 0.5
-        # X, Y, Z = X.astype(np.float16), Y.astype(np.float16), X.astype(np.float16)
 
         # Loop for generate the units
         Z2 = Z * Z
@@ -202,32 +228,18 @@ class MTUnit(FiberUnit):
         ang = ang_step
         while ang <= 2.0 * np.pi:
             # Generate the unit
-            # x, y = mt_rad_v * math.cos(ang), mt_rad_v * math.sin(ang)
             x, y = mt_rad_v * math.cos(ang), mt_rad_v * math.sin(ang)
             Xh, Yh = X + x, Y + y
-            # R = np.abs(Xh * Xh + Yh * Yh + Z2)
             R = Xh * Xh + Yh * Yh + Z2 - sph_rad_v2
-            # from polnet import lio
-            # lio.write_mrc(R.astype(np.float32), '/fs/pool/pool-lucic2/antonio/polnet/riboprot/synth_all/hold_R1.mrc')
             F = 1.0 / (1.0 + np.exp(-R))
-            # mask_F = F < 0.1
             self.__tomo += -F + 1
             ang += ang_step
 
-        # from polnet import lio
-        # lio.write_mrc(self.__tomo, '/fs/pool/pool-lucic2/antonio/polnet/riboprot/synth_all/hold_mtunit1.mrc')
-
         # Generating the surfaces
-        self.__tomo = lin_map(
-            self.__tomo, lb=0, ub=1
-        )  # self.__tomo = lin_map(self.__tomo, lb=0, ub=1)
-        self.__surf = iso_surface(
-            self.__tomo, 0.25
-        )  # self.__surf = iso_surface(self.__tomo, .75)
+        self.__tomo = lin_map(self.__tomo, lb=0, ub=1)
+        self.__surf = iso_surface(self.__tomo, 0.25)
         self.__surf = poly_scale(self.__surf, self.__v_size)
         self.__surf = poly_translate(
             self.__surf,
             -0.5 * self.__v_size * (np.asarray(self.__tomo.shape) - 0.5),
         )
-
-        # lio.save_vtp(self.__surf, '/fs/pool/pool-lucic2/antonio/polnet/riboprot/synth_all/hold_mtunit1.vtp')

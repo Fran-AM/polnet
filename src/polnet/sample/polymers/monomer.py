@@ -1,26 +1,73 @@
+"""Single polymer repeat unit with VTK surface geometry.
+
+Defines :class:`Monomer`, which wraps a vtkPolyData surface and
+provides placement (rotation + translation) of the unit inside
+a 3-D tomographic volume.
+
+:author: Antonio Martinez-Sanchez
+:maintainer: Juan Diego Gallego Nicolás
+"""
+
 import numpy as np
 import vtk
 
-from ...utils.affine import poly_rotate_wxyz, quat_to_angle_axis, poly_translate, tomo_rotate, vect_rotate
-from ...utils.utils import insert_svol_tomo, points_distance
-from ...utils.poly import poly_center_mass, poly_volume, poly_diam, VTK_RAY_TOLERANCE
+from ...utils.affine import (
+    poly_rotate_wxyz,
+    poly_translate,
+    quat_to_angle_axis,
+    tomo_rotate,
+    vect_rotate,
+)
+from ...utils.poly import (
+    poly_center_mass,
+    poly_diam,
+    poly_volume,
+)
+from ...utils.utils import (
+    insert_svol_tomo,
+    points_distance,
+    VTK_RAY_TOLERANCE,
+)
 
 MB_DOMAIN_FIELD_STR = "mb_domain"
 
+
 class Monomer:
-    """
-    Class for a single monomer
+    """Single polymer repeat unit with VTK surface geometry.
+
+    Wraps a vtkPolyData surface and tracks the ordered sequence of
+    rigid transformations (rotations and translations) applied to it
+    so that the matching sub-volume density can be reproduced.
+
+    Attributes:
+        __m_surf (vtk.vtkPolyData): Copy of the reference surface,
+            updated after each transformation.
+        __diam (float): Diameter of the monomer in Angstroms.
+        __rot_angs (numpy.ndarray): Euler rotation angles in degrees
+            (kept for legacy/debug use).
+        __bounds (numpy.ndarray): Axis-aligned bounding box in
+            format [xmin, xmax, ymin, ymax, zmin, zmax].
+        __trans (list[tuple]): Ordered transformation queue.  Each
+            element is a 2-tuple (type, value) where type is 'r'
+            (rotation quaternion) or 't' (translation vector).
     """
 
     def __init__(self, m_surf, diam):
-        """
-        Constructor
+        """Initialise a Monomer from a VTK surface and diameter.
 
-        :param m_surf: monomer surface (as vtkPolyData object)
-        :param diam: monomer diameter
+        Args:
+            m_surf (vtk.vtkPolyData): Monomer reference surface.
+            diam (float): Monomer diameter in Angstroms; must be
+                > 0.
+
+        Raises:
+            TypeError: If m_surf is not a vtkPolyData instance.
+            ValueError: If diam is not positive.
         """
-        assert isinstance(m_surf, vtk.vtkPolyData)
-        assert diam > 0
+        if not isinstance(m_surf, vtk.vtkPolyData):
+            raise TypeError("m_surf must be a vtkPolyData instance.")
+        if diam <= 0:
+            raise ValueError("diam must be greater than 0.")
         self.__m_surf = vtk.vtkPolyData()
         self.__m_surf.DeepCopy(m_surf)
         self.__diam = diam
@@ -31,42 +78,51 @@ class Monomer:
         # (str in ['t', 'r'], transform value in [vector, quaternion])
         self.__trans = list()
 
-    def get_vtp(self):
+    @property
+    def vtp(self):
+        """Return the current vtkPolyData surface of the monomer."""
         return self.__m_surf
 
-    def get_center_mass(self):
-        """
-        Computer and return the monomer center of mass
+    @property
+    def center_mass(self):
+        """Compute and return the monomer centre of mass.
 
-        :return: a numpy array
+        Returns:
+            numpy.ndarray: Centre of mass as a 3-element array.
         """
         return np.asarray(poly_center_mass(self.__m_surf))
 
-    def get_diameter(self):
+    @property
+    def diameter(self):
+        """Return the monomer diameter in Angstroms."""
         return self.__diam
 
-    def get_trans_list(self):
-        """
-        Get transformations list
+    @property
+    def trans_list(self):
+        """Return the ordered transformation queue.
 
-        :return: a list with al transformations, each element is duple with a first element
-        indicating the transformation type ('r' or 't')
+        Returns:
+            list[tuple]: Each element is a 2-tuple (type, value)
+                where type is 'r' (rotation quaternion [w,x,y,z])
+                or 't' (translation vector [x,y,z]).
         """
         return self.__trans
 
     def compute_bounds(self):
-        # Compute bounds
+        """Recompute the axis-aligned bounding box from current geometry."""
         arr = self.__m_surf.GetPoints().GetData()
         self.__bounds[0], self.__bounds[1] = arr.GetRange(0)
         self.__bounds[2], self.__bounds[3] = arr.GetRange(1)
         self.__bounds[4], self.__bounds[5] = arr.GetRange(2)
 
     def rotate_q(self, q):
-        """
-        Applies rotation rigid transformation around center from an input unit quaternion.
+        """Apply a rigid rotation about the origin using a quaternion.
 
-        :param q: input quaternion
-        :return:
+        The surface geometry and bounding box are updated in place,
+        and the transform is appended to the transformation queue.
+
+        Args:
+            q (array-like): Unit quaternion as [w, x, y, z].
         """
         w, v_axis = quat_to_angle_axis(q[0], q[1], q[2], q[3])
         self.__m_surf = poly_rotate_wxyz(
@@ -76,17 +132,28 @@ class Monomer:
         self.__trans.append(("r", q))
 
     def translate(self, t_v):
-        """
-        Applies rotation rigid transformation.
+        """Apply a rigid translation to the monomer surface.
 
-        :param t_v: translation vector (x, y, z)
-        :return:
+        The surface geometry and bounding box are updated in place,
+        and the transform is appended to the transformation queue.
+
+        Args:
+            t_v (array-like): Translation vector (x, y, z) in
+                Angstroms.
         """
         self.__m_surf = poly_translate(self.__m_surf, t_v)
         self.compute_bounds()
         self.__trans.append(("t", t_v))
 
     def point_in_bounds(self, point):
+        """Test whether a 3-D point lies inside the monomer's AABB.
+
+        Args:
+            point (array-like): 3-element coordinate to test.
+
+        Returns:
+            bool: True if the point is inside the bounding box.
+        """
         x_over, y_over, z_over = True, True, True
         if (self.__bounds[0] > point[0]) or (self.__bounds[1] < point[0]):
             x_over = False
@@ -97,11 +164,15 @@ class Monomer:
         return x_over and y_over and z_over
 
     def bound_in_bounds(self, bounds):
-        """
-        Check if the object's bound are at least partially in another bound
+        """Test whether this monomer's AABB overlaps another AABB.
 
-        :param bounds: input bound
-        :return:
+        Args:
+            bounds (array-like): Reference bounding box in the form
+                [xmin, xmax, ymin, ymax, zmin, zmax].
+
+        Returns:
+            bool: True if the two bounding boxes overlap on all
+                three axes.
         """
         x_over, y_over, z_over = True, True, True
         if (self.__bounds[0] > bounds[1]) or (self.__bounds[1] < bounds[0]):
@@ -109,28 +180,40 @@ class Monomer:
         if (self.__bounds[2] > bounds[3]) or (self.__bounds[3] < bounds[2]):
             y_over = False
         if (self.__bounds[4] > bounds[5]) or (self.__bounds[5] < bounds[4]):
-            y_over = False
+            z_over = False
         return x_over and y_over and z_over
 
     def overlap_voi(self, voi, v_size=1, over_tolerance=0):
-        """
-        Determines if the monomer overlaps a VOI, that requires the next condition:
-            - Any particle on the monomer surface is within the VOI
+        """Test whether this monomer exceeds the VOI boundary.
 
-        :param voi: input VOI (Volume Of Interest), binary tomogram with True for VOI voxels
-        :param v_size: voxel size, it must greater than 0 (default 1)
-        :param over_tolerance: maximum overlap allowed (default 0)
-        :return: True if the monomer overlaps the VOI, False otherwise
+        Returns True when the fraction of surface vertices outside
+        the VOI exceeds over_tolerance.  Vertices belonging to
+        membrane domains (label > 0 in MB_DOMAIN_FIELD_STR) are
+        excluded from the check.
+
+        Args:
+            voi (numpy.ndarray): Boolean 3-D VOI mask (True inside).
+            v_size (float): Voxel size in Angstroms (default 1).
+            over_tolerance (float): Maximum outside fraction before
+                overlap is declared (default 0).
+
+        Returns:
+            bool: True if the monomer is outside the VOI beyond the
+                tolerance, False otherwise.
+
+        Raises:
+            ValueError: If v_size <= 0.
+            TypeError: If voi is not a boolean numpy array.
         """
 
-        # Initialization
-        assert v_size > 0
-        assert isinstance(voi, np.ndarray) and (voi.dtype == "bool")
+        if v_size <= 0:
+            raise ValueError("v_size must be greater than 0.")
+        if not isinstance(voi, np.ndarray) or voi.dtype != "bool":
+            raise TypeError("voi must be a boolean numpy array.")
         nx, ny, nz = voi.shape
         v_size_i = 1.0 / v_size
         mbd_prop = self.__m_surf.GetPointData().GetArray(MB_DOMAIN_FIELD_STR)
 
-        # Any particle on the monomer surface is within the VOI
         count, n_points = 0.0, self.__m_surf.GetNumberOfPoints()
         n_points_if = 1.0 / float(n_points)
         if mbd_prop is None:
@@ -181,42 +264,56 @@ class Monomer:
 
         return False
 
-    def get_vol(self):
-        """
-        Get the polymer volume
-        :return: the computed volume
+    @property
+    def vol(self):
+        """Return the enclosed volume of the monomer surface.
+
+        Returns:
+            float: Volume in voxel units cubed.
         """
         return poly_volume(self.__m_surf)
 
-    def get_area(self):
-        """
-        Get the polymer area projected on a surface (currently only a plane containing the center, the monomer is
-        approximated as ssphere)
+    @property
+    def area(self):
+        """Estimate the projected cross-sectional area of the monomer.
 
-        :return: the computed area
+        The monomer is approximated as a sphere with diameter equal
+        to its poly_diam, yielding area = pi*(d/2)^2.
+
+        Returns:
+            float: Projected area in voxel units squared.
         """
         diam = poly_diam(self.__m_surf)
         return np.pi * diam * diam * 0.25
 
     def get_copy(self):
-        """
-        Get a copy of the current Monomer
-        :return: a new instance of this monomer
+        """Return a deep copy of the current Monomer.
+
+        Returns:
+            Monomer: New Monomer instance with an independent copy
+                of the surface geometry.
         """
         return Monomer(self.__m_surf, self.__diam)
 
     def insert_density_svol(
         self, m_svol, tomo, v_size=1, merge="max", off_svol=None
     ):
-        """
-        Insert a monomer subvolume into a tomogram
+        """Stamp a monomer sub-volume into a tomogram.
 
-        :param m_svol: input monomer sub-volume
-        :param tomo: tomogram where m_svol is added
-        :param v_size: tomogram voxel size (default 1)
-        :param merge: merging mode, valid: 'min' (default), 'max', 'sum' and 'insert'
-        :param off_svol: offset coordinates in voxels for shifting sub-volume monomer center coordinates (default None)
-        :return:
+        Replays the transformation queue on a copy of the reference
+        sub-volume (rotations applied via tomo_rotate, translations
+        accumulated) and then blends it into tomo.
+
+        Args:
+            m_svol (numpy.ndarray): Reference monomer density
+                sub-volume.
+            tomo (numpy.ndarray): Target tomogram modified in place.
+            v_size (float): Voxel size in Angstroms (default 1).
+            merge (str): Blending strategy: 'max' (default), 'min',
+                'sum', or 'insert'.
+            off_svol (array-like, optional): Additional (x, y, z)
+                offset applied to the sub-volume centre after
+                replaying rotations.
         """
         v_size_i = 1.0 / v_size
         tot_v = np.asarray((0.0, 0.0, 0.0))
@@ -264,21 +361,28 @@ class Monomer:
         insert_svol_tomo(hold_svol, tomo, tot_v, merge=merge)
 
     def overlap_mmer(self, mmer, over_tolerance=0):
-        """
-        Determines if the monomer overlaps with another
+        """Test whether this monomer overlaps another monomer.
 
-        :param mmer: input monomer to check overlap with self
-        :param over_tolerance: maximum overlap allowed (default 0)
-        :return: True if overlapping, otherwise False
+        Uses vtkSelectEnclosedPoints to count how many vertices of
+        mmer lie inside this monomer's closed surface.
+
+        Args:
+            mmer (Monomer): The monomer to test against self.
+            over_tolerance (float): Maximum allowed overlap
+                fraction (default 0).
+
+        Returns:
+            bool: True if the overlap fraction exceeds
+                over_tolerance.
         """
         # Initialization
         selector = vtk.vtkSelectEnclosedPoints()
         selector.SetTolerance(VTK_RAY_TOLERANCE)
-        selector.Initialize(self.get_vtp())
+        selector.Initialize(self.vtp)
 
-        dist = points_distance(self.get_center_mass(), mmer.get_center_mass())
-        if dist <= self.get_diameter():
-            poly_b = mmer.get_vtp()
+        dist = points_distance(self.center_mass, mmer.center_mass)
+        if dist <= self.diameter:
+            poly_b = mmer.vtp
             count, n_points = 0.0, poly_b.GetNumberOfPoints()
             n_points_if = 1.0 / float(n_points)
             for i in range(n_points):
@@ -291,31 +395,35 @@ class Monomer:
         return False
 
     def overlap_net(self, net, over_tolerance=0, max_dist=None):
-        """
-        Determines if the monomer overlaps with another momonmer in a network
+        """Test whether this monomer overlaps any monomer in a network.
 
-        :param mmer: input monomer to check overlap with self
-        :param over_tolerance: maximum overlap allowed (default 0)
-        :param max_dist: allows to externally set a maximum distance (in A) to seach for collisions, otherwise 1.2 monomer
-                         diameter is used
-        :return: True if overlapping, otherwise False
+        Iterates over all polymers and monomers in net and performs
+        the same point-in-surface test as :meth:`overlap_mmer`.
+
+        Args:
+            net (Network): Polymer network to check against.
+            over_tolerance (float): Maximum allowed overlap
+                fraction (default 0).
+            max_dist (float, optional): Search radius in Angstroms.
+                Defaults to 1.2 × monomer diameter.
+
+        Returns:
+            bool: True if any overlap beyond over_tolerance is
+                found.
         """
-        # Initialization
         selector = vtk.vtkSelectEnclosedPoints()
         selector.SetTolerance(VTK_RAY_TOLERANCE)
-        selector.Initialize(self.get_vtp())
+        selector.Initialize(self.vtp)
 
-        for pmer in net.get_pmers_list():
-            for mmer in pmer.get_mmers_list():
-                dist = points_distance(
-                    self.get_center_mass(), mmer.get_center_mass()
-                )
+        for pmer in net.pmers_list:
+            for mmer in pmer.mmers_list:
+                dist = points_distance(self.center_mass, mmer.center_mass)
                 if max_dist is None:
-                    max_dist_h = self.get_diameter() * 1.2
+                    max_dist_h = self.diameter * 1.2
                 else:
                     max_dist_h = max_dist
                 if dist <= max_dist_h:
-                    poly_b = mmer.get_vtp()
+                    poly_b = mmer.vtp
                     count, n_points = 0.0, poly_b.GetNumberOfPoints()
                     n_points_if = 1.0 / float(n_points)
                     for i in range(n_points):

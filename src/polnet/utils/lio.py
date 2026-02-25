@@ -1,47 +1,56 @@
+"""I/O helper functions for MRC, VTP, and CSV formats.
+
+Wraps mrcfile, VTK, and pandas to provide a unified read/write
+interface for volumetric and mesh data used by Polnet.
+
+:author: Antonio Martinez-Sanchez
+:maintainer: Juan Diego Gallego Nicolás
 """
-I/O functions
 
-"""
-
-__author__ = 'Antonio Martinez-Sanchez'
-
-import vtk
 import csv
+
 import mrcfile
 import numpy as np
 import pandas as pd
-
+import vtk
 from vtkmodules.util.numpy_support import numpy_to_vtk
 
 
 def load_mrc(fname, mmap=False, no_saxes=True):
-    """
-    Load an input MRC tomogram as ndarray
+    """Load an MRC tomogram file into a numpy array.
 
-    :param fname: the input MRC
-    :param mmap: if True (default False) the data are read as a memory map
-    :param no_saxes: if True (default) then X and Y axes are swaped to cancel the swaping made by mrcfile package
-    :return: a ndarray (or memmap is mmap=True)
+    Args:
+        fname (str | Path): Path to the input MRC file.
+        mmap (bool): If True, data are read as a memory-mapped
+            array (default False).
+        no_saxes (bool): If True (default), swaps axes 0 and 2
+            to cancel the X/Y swap introduced by mrcfile.
+
+    Returns:
+        numpy.ndarray: The tomogram data; a memmap if mmap is
+            True.
     """
     if mmap:
-        mrc = mrcfile.mmap(fname, permissive=True, mode='r+')
+        mrc = mrcfile.mmap(fname, permissive=True, mode="r+")
     else:
-        mrc = mrcfile.open(fname, permissive=True, mode='r+')
+        mrc = mrcfile.open(fname, permissive=True, mode="r+")
     if no_saxes:
         return np.swapaxes(mrc.data, 0, 2)
     return mrc.data
 
 
 def write_mrc(tomo, fname, v_size=1, dtype=None, no_saxes=True):
-    """
-    Saves a tomo (3D dataset) as MRC file
+    """Save a 3-D array as an MRC file.
 
-    :param tomo: tomo to save as ndarray
-    :param fname: output file path
-    :param v_size: voxel size (default 1)
-    :param dtype: data type (default None, then the dtype of tomo is considered)
-    :param no_saxes: if True (default) then X and Y axes are swaped to cancel the swaping made by mrcfile package
-    :return:
+    Args:
+        tomo (numpy.ndarray): The 3-D tomogram to save.
+        fname (str | Path): Output file path.
+        v_size (float): Isotropic voxel size in Angstroms
+            (default 1).
+        dtype: Data type to cast to before saving; None (default)
+            preserves the input dtype.
+        no_saxes (bool): If True (default), swaps axes 0 and 2
+            before writing to cancel the X/Y swap.
     """
     with mrcfile.new(fname, overwrite=True) as mrc:
         if dtype is None:
@@ -57,27 +66,31 @@ def write_mrc(tomo, fname, v_size=1, dtype=None, no_saxes=True):
         mrc.voxel_size.flags.writeable = True
         mrc.voxel_size = (v_size, v_size, v_size)
         mrc.set_volume()
-        # mrc.header.ispg = 401
 
 
 def read_mrc_v_size(fname):
-    """
-    Reads the voxel size of a mrc file from its header
+    """Read the voxel size from the header of an MRC file.
 
-    :param fname: filename of the MRC
-    :return: a 3-tuple with the voxel size in Angstrom for each dimension (X, Y, Z)
+    Args:
+        fname (str | Path): Path to the MRC file.
+
+    Returns:
+        tuple[float, float, float]: Voxel size in Angstroms as
+            (x, y, z).
     """
     with mrcfile.mmap(fname) as mrc:
-        return (mrc.voxel_size['x'], mrc.voxel_size['y'], mrc.voxel_size['z'])
+        return (mrc.voxel_size["x"], mrc.voxel_size["y"], mrc.voxel_size["z"])
 
 
 def save_vtp(poly, fname):
-    """
-    Store data vtkPolyData as a .vtp file
+    """Store a vtkPolyData object to a .vtp file.
 
-    :param poly: input vtkPolyData to store
-    :param fname: output path file
-    :return:
+    Args:
+        poly (vtk.vtkPolyData): The polygon dataset to store.
+        fname (str | Path): Output file path.
+
+    Raises:
+        IOError: If the VTK writer reports a failure.
     """
 
     writer = vtk.vtkXMLPolyDataWriter()
@@ -88,12 +101,14 @@ def save_vtp(poly, fname):
 
 
 def save_vti(image, fname):
-    """
-    Store data vtkPolyData as a .vti file
+    """Store a vtkImageData object to a .vti file.
 
-    :param image: input image as numpy array
-    :param fname: output path file
-    :return:
+    Args:
+        image (vtk.vtkImageData): The image dataset to store.
+        fname (str | Path): Output file path.
+
+    Raises:
+        IOError: If the VTK writer reports a failure.
     """
 
     writer = vtk.vtkXMLImageDataWriter()
@@ -104,11 +119,13 @@ def save_vti(image, fname):
 
 
 def load_poly(fname):
-    """
-    Load data vtkPolyData object from a file
+    """Load a vtkPolyData object from a .vtp file.
 
-    :param fname: input .vtp file
-    :return: the vtkPolyData object loaded
+    Args:
+        fname (str | Path): Path to the input .vtp file.
+
+    Returns:
+        vtk.vtkPolyData: The loaded polygon dataset.
     """
 
     reader = vtk.vtkXMLPolyDataReader()
@@ -119,40 +136,64 @@ def load_poly(fname):
 
 
 def load_csv_into_tomo_tables(in_csv_file):
-    """
-    Load a CSV file as a dictionary of tables, one for each density
+    """Load a per-particle CSV file and organise rows by tomogram.
 
-    :param in_csv_file: input CSV file path
-    :return: a dictionary where each density path is an entry for a table, each table contains all particles of single
-             density
+    Args:
+        in_csv_file (str | Path): Path to the tab-separated CSV
+            with columns: Density Micrographs, PolyData, Tomo3D,
+            Type, Label, Code, Polymer, X, Y, Z, Q1, Q2, Q3, Q4.
+
+    Returns:
+        dict: Nested dictionary keyed by Tomo3D path.  Each value
+            is a dict mapping column names to lists of row values.
     """
-    tables_df = pd.read_csv(in_csv_file, delimiter='\t', names=['Density Micrographs', 'PolyData', 'Tomo3D', 'Type',
-                                                                 'Label', 'Code', 'Polymer', 'X', 'Y', 'Z',
-                                                                 'Q1', 'Q2', 'Q3', 'Q4'], header=0)
-    den_tomos = set(tables_df['Tomo3D'].tolist())
+    tables_df = pd.read_csv(
+        in_csv_file,
+        delimiter="\t",
+        names=[
+            "Density Micrographs",
+            "PolyData",
+            "Tomo3D",
+            "Type",
+            "Label",
+            "Code",
+            "Polymer",
+            "X",
+            "Y",
+            "Z",
+            "Q1",
+            "Q2",
+            "Q3",
+            "Q4",
+        ],
+        header=0,
+    )
+    den_tomos = set(tables_df["Tomo3D"].tolist())
     tables_dic = dict().fromkeys(den_tomos)
     for key in tables_dic:
         tables_dic[key] = dict().fromkeys(tables_df.columns.tolist())
         for kkey in tables_dic[key]:
             tables_dic[key][kkey] = list()
     for row in tables_df.iterrows():
-        key = row[1]['Tomo3D']
+        key = row[1]["Tomo3D"]
         for item, value in row[1].items():
             tables_dic[key][item].append(value)
     return tables_dic
 
 
 def write_table(table, out_file):
-    """
-    Store a table in a CSV file
+    """Write a column-oriented table dictionary to a TSV file.
 
-    :param table: input table dictionary
-    :param out_file: path for the output file
-    :return:
+    Args:
+        table (dict): Mapping from column names to lists of row
+            values.
+        out_file (str | Path): Output file path.
     """
-    with open(out_file, 'w', newline='') as csv_file:
+    with open(out_file, "w", newline="", encoding="utf-8") as csv_file:
         fieldnames = list(table.keys())
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames, delimiter='\t')
+        writer = csv.DictWriter(
+            csv_file, fieldnames=fieldnames, delimiter="\t"
+        )
         writer.writeheader()
         for row in range(len(table[fieldnames[0]])):
             dic_row = dict().fromkeys(fieldnames)
@@ -162,16 +203,25 @@ def write_table(table, out_file):
 
 
 def numpy_to_vti(tomo: np.ndarray, dtype=vtk.VTK_FLOAT) -> vtk.vtkImageData:
-    """
-    Converts a tomogram as a 3D numpy array into an vtkImageData object
+    """Convert a 3-D numpy array to a vtkImageData object.
 
-    :param tomo: 3D numpy array
-    :param dtype: VTK data type, default VTK_FLOAT
-    :return: a vktImageData
-    """
-    assert len(tomo.shape) == 3
+    Args:
+        tomo (numpy.ndarray): Input 3-D array.
+        dtype (int): VTK scalar type constant
+            (default vtk.VTK_FLOAT).
 
-    vtk_data = numpy_to_vtk(num_array=tomo.flatten(), deep=True, array_type=dtype)
+    Returns:
+        vtk.vtkImageData: The resulting VTK image object.
+
+    Raises:
+        TypeError: If tomo is not a 3-D array.
+    """
+    if tomo.ndim != 3:
+        raise TypeError("tomo must be a 3-D numpy array.")
+
+    vtk_data = numpy_to_vtk(
+        num_array=tomo.flatten(), deep=True, array_type=dtype
+    )
     img = vtk.vtkImageData()
     img.GetPointData().SetScalars(vtk_data)
     img.SetDimensions(tomo.shape[0], tomo.shape[1], tomo.shape[2])

@@ -1,3 +1,13 @@
+"""Centralised logging configuration for the Polnet package.
+
+Provides :func:`setup_logger` and the package-wide ``_LOGGER``
+singleton.  Call :func:`setup_logger` once at application start-up
+to attach a rotating file handler and a console handler.
+
+:author: Antonio Martinez-Sanchez
+:maintainer: Juan Diego Gallego Nicolás
+"""
+
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -41,10 +51,11 @@ def setup_logger(
     )
     file_handler.setLevel(file_level)
     file_format = logging.Formatter(
-        "%(asctime)s,%(msecs)03d | %(levelname)-8s | %(name)s | %(message)s",
+        "%(asctime)s,%(msecs)03d | %(levelname)-8s | %(name)s | %(module)s:%(lineno)d | %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
     file_handler.setFormatter(file_format)
 
     _LOGGER.addHandler(console_handler)
     _LOGGER.addHandler(file_handler)
+    _LOGGER.propagate = False

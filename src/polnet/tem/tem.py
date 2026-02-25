@@ -1,35 +1,51 @@
+"""Transmission Electron Microscopy (TEM) simulation models.
+
+Wraps IMOD command-line binaries (``xyzproj``, ``tilt``,
+``alterheader``) to project and reconstruct tomographic volumes.
+
+.. warning::
+    IMOD must be installed and accessible on the system ``PATH``.
+
+:author: Antonio Martinez-Sanchez
+:maintainer: Juan Diego Gallego Nicolás
 """
-Models for Transmision Electron Microscopy
-    * VERY IMPORTANT: this package makes usage of some IMOD binaries, so they must be installed in the system
 
-"""
-
-__author__ = "Antonio Martinez-Sanchez"
-
-import os
-import time
 import math
-import subprocess
+import os
 import random
+import subprocess
+import time
+
 import numpy as np
-import scipy as sp
-from ..utils import lio
+from scipy.ndimage import shift as sp_shift
 
 from ..logging_conf import _LOGGER as logger
+from ..utils import lio
 
 ## IMOD commands
 IMOD_CMD_XYZPROJ = "xyzproj"
 IMOD_CMD_TILT = "tilt"
 IMOD_CMD_AHEADER = "alterheader"
 
+
 class TEM:
-    """
-    Class for modeling a Transmission Electron Microscope
+    """Wrapper around IMOD command-line tools for TEM simulation.
+
+    Manages a working directory for intermediate MRC files and
+    tilt-angle lists, and exposes methods to generate a tilt
+    series, reconstruct a 3-D volume, add noise, and adjust
+    headers.
+
+    Note:
+        IMOD must be installed and on the system PATH.
     """
 
     def __init__(self, work_dir):
-        """
-        :param work_dir: path to working directory where intermediate files are stored
+        """Initialise a TEM simulator.
+
+        Args:
+            work_dir (str | Path): Directory for intermediate
+                files (created if it does not exist).
         """
         self.__work_dir = work_dir
         self.__log_file = self.__work_dir + "/TEM.log"
@@ -47,46 +63,58 @@ class TEM:
             os.mkdir(self.__work_dir)
 
     def __save_tangs_file(self, angs):
-        """
-        Stores the tilt angles file according IMOD format
+        """Write tilt angles to an IMOD-format .tlt file.
 
-        :param angs: non-empty iterable with the tilt angles
+        Args:
+            angs (iterable): Sequence of tilt angles in degrees.
         """
-        with open(self.__tangs_file, "w") as file:
+        with open(self.__tangs_file, "w", encoding="utf-8") as file:
             for ang in angs:
                 file.write(str(ang) + "\n")
 
     def __load_tangs_file(self):
-        """
-        Load the tilt angles file into an array
+        """Read the tilt angles .tlt file into a numpy array.
 
-        :return: output array with the tilt angles
+        Returns:
+            numpy.ndarray: Array of tilt angles in degrees.
         """
         angs = list()
-        with open(self.__tangs_file, "r") as file:
+        with open(self.__tangs_file, "r", encoding="utf-8") as file:
             for line in file:
                 angs.append(float(line.strip()))
         return np.asarray(angs)
 
     def gen_tilt_series_imod(self, vol, angs, ax="X", mode="real"):
-        """
-        Generates the 2D projection series from a 3D volume using 'xyzproj' IMOD binary
+        """Generate a 2-D tilt series from a 3-D volume via IMOD xyzproj.
 
-        :param vol: input 3D volume
-        :param angs: non-empty iterable with the tilt angles or a range
-        :param ax: tilt axis, either 'X', 'Y' or 'Z' (default 'X')
-        :param mode: mode of output file, valid: 'byte', 'int' or 'real' (default)
+        Writes the volume as MRC, calls ``xyzproj``, and saves the
+        tilt angles to the working directory.
+
+        Args:
+            vol (numpy.ndarray): Input 3-D tomogram.
+            angs (iterable | range): Tilt angles in degrees.
+            ax (str): Tilt axis: 'X' (default), 'Y', or 'Z'.
+            mode (str): Output MRC mode: 'byte', 'int', or 'real'
+                (default).
+
+        Raises:
+            TypeError: If vol is not a 3-D numpy array.
+            ValueError: If angs is empty, or ax/mode is invalid.
+            subprocess.CalledProcessError: If xyzproj fails.
+            IOError: If the log file cannot be written.
         """
 
-        # Input parsing
-        assert isinstance(vol, np.ndarray) and (len(vol.shape) == 3)
-        assert hasattr(angs, "__len__") and (len(angs) > 0)
-        assert (ax == "X") or (ax == "Y") or (ax == "Z")
-        assert (mode == "byte") or (mode == "int") or (mode == "real")
+        if not isinstance(vol, np.ndarray) or vol.ndim != 3:
+            raise TypeError("vol must be a 3-D numpy array.")
+        if not hasattr(angs, "__len__") or len(angs) == 0:
+            raise ValueError("angs must be a non-empty iterable.")
+        if ax not in ("X", "Y", "Z"):
+            raise ValueError("ax must be 'X', 'Y' or 'Z'.")
+        if mode not in ("byte", "int", "real"):
+            raise ValueError("mode must be 'byte', 'int' or 'real'.")
 
         # Call to IMOD binary (xyzproj)
 
-        # Building the command
         xyzproj_cmd = [IMOD_CMD_XYZPROJ]
         in_vol_path = self.__vol_file
         lio.write_mrc(vol, in_vol_path)
@@ -114,7 +142,7 @@ class TEM:
 
         # Command calling
         try:
-            with open(self.__log_file, "a") as file_log:
+            with open(self.__log_file, "a", encoding="utf-8") as file_log:
                 file_log.write(
                     "\n["
                     + time.strftime("%c")
@@ -125,25 +153,37 @@ class TEM:
                 subprocess.call(xyzproj_cmd, stdout=file_log, stderr=file_log)
             self.__save_tangs_file(angs)
         except subprocess.CalledProcessError:
-            logger.error("ERROR: Error calling the command: %s", xyzproj_cmd)
-            raise subprocess.CalledProcessError
+            logger.error("Error calling the command: %s", xyzproj_cmd)
+            raise
         except IOError:
-            logger.error("ERROR: Log file could not be written: %s", self.__log_file)
-            raise IOError
+            logger.error("Log file could not be written: %s", self.__log_file)
+            raise
 
     def add_detector_noise(self, snr):
+        """Add Gaussian readout noise to the simulated micrographs.
+
+        Dark-current noise is one order of magnitude lower than
+        readout noise and is neglected.  The noise level is
+        determined by the desired SNR relative to the mean
+        foreground intensity.
+
+        Args:
+            snr (float): Target signal-to-noise ratio (linear
+                scale); must be > 0.
+
+        Raises:
+            FileNotFoundError: If the micrograph MRC file is
+                missing.
+            ValueError: If snr <= 0.
         """
-        Add detector noise to micrographs. Readout noise has Gaussian distribution and dark current is typically
-        one order magnitude lower, so the last one is neglected.
 
-        :param snr: target snr to determine the level of noise to be added, linear scale so greater than zero
-        """
+        if not os.path.exists(self.__micgraphs_file):
+            raise FileNotFoundError(
+                f"Micrographs file not found: " f"{self.__micgraphs_file}"
+            )
+        if snr <= 0:
+            raise ValueError("snr must be greater than 0.")
 
-        # Input parsing
-        assert os.path.exists(self.__micgraphs_file)
-        assert snr > 0
-
-        # Load micrographs
         mics = lio.load_mrc(self.__micgraphs_file)
 
         rng = np.random.default_rng()
@@ -159,9 +199,22 @@ class TEM:
         lio.write_mrc(mics, self.__micgraphs_file)
 
     def recon3D_imod(self, thick=None):
-        """
-        Performs a 3D reconstruction from the tilted series micrograph using 'tilt' IMOD binary
-        :param thick: (optional) to enable a tomogram thickness (along Z-axis) different from the original density.
+        """Reconstruct a 3-D tomogram from the tilt series via IMOD tilt.
+
+        Reads the micrograph stack and tilt-angle file from the
+        working directory, calls ``tilt``, and saves the result
+        after swapping and flipping the axes to match the input
+        coordinate system.
+
+        Args:
+            thick (int, optional): Output tomogram thickness along
+                Z in voxels; None (default) uses the input volume
+                X dimension.
+
+        Raises:
+            ValueError: If thick <= 0.
+            subprocess.CalledProcessError: If tilt fails.
+            IOError: If the log file cannot be written.
         """
 
         # Call to IMOD binary (tilt)
@@ -175,12 +228,13 @@ class TEM:
         if thick is None:
             tilt_cmd += ["-THICKNESS", str(vol.shape[0])]
         else:
-            assert thick > 0
+            if thick <= 0:
+                raise ValueError("thick must be greater than 0.")
             tilt_cmd += ["-THICKNESS", str(thick)]
 
         # Command calling
         try:
-            with open(self.__log_file, "a") as file_log:
+            with open(self.__log_file, "a", encoding="utf-8") as file_log:
                 file_log.write(
                     "\n["
                     + time.strftime("%c")
@@ -190,11 +244,11 @@ class TEM:
                 )
                 subprocess.call(tilt_cmd, stdout=file_log, stderr=file_log)
         except subprocess.CalledProcessError:
-            logger.error("ERROR: Error calling the command: %s", tilt_cmd)
-            raise subprocess.CalledProcessError
+            logger.error("Error calling the command: %s", tilt_cmd)
+            raise
         except IOError:
-            logger.error("ERROR: Log file could not be written: %s", self.__log_file)
-            raise IOError
+            logger.error("Log file could not be written: %s", self.__log_file)
+            raise
 
         # Swap Y-Z axes from the output given by IMOD
         hold_rec = np.swapaxes(lio.load_mrc(self.__rec3d_file), 1, 2)
@@ -202,18 +256,30 @@ class TEM:
         lio.write_mrc(np.flip(hold_rec, axis=2), self.__rec3d_file)
 
     def set_header(self, data="mics", p_size=None, origin=None):
-        """
-        Set 3D reconstructed tomogram pixel (voxel) size using alter 'alterheader' IMOD script
+        """Set pixel size and/or origin in an MRC header via IMOD alterheader.
 
-        :param data: determines the data where the changes will be applied, valid: 'mics' or 'rec3d'
-        :param p_size: pixel size X, Y and Z dimensions
-        :param origin: origin X, Y and Z dimensions
+        Args:
+            data (str): Target file: 'mics' (default) for the
+                micrograph stack, or 'rec3d' for the reconstruction.
+            p_size (array-like, optional): Voxel size as (dx, dy,
+                dz) in Angstroms.
+            origin (array-like, optional): Origin as (ox, oy, oz)
+                in Angstroms.
+
+        Raises:
+            ValueError: If data is invalid, or p_size/origin have
+                != 3 elements.
+            subprocess.CalledProcessError: If alterheader fails.
+            IOError: If the log file cannot be written.
         """
-        assert (data == "mics") or (data == "rec3d")
+        if data not in ("mics", "rec3d"):
+            raise ValueError("data must be 'mics' or 'rec3d'.")
         if p_size is not None:
-            assert hasattr(p_size, "__len__") and len(p_size) == 3
+            if not hasattr(p_size, "__len__") or len(p_size) != 3:
+                raise ValueError("p_size must have exactly 3 elements.")
         if origin is not None:
-            assert hasattr(origin, "__len__") and len(origin) == 3
+            if not hasattr(origin, "__len__") or len(origin) != 3:
+                raise ValueError("origin must have exactly 3 elements.")
 
         # Call to IMOD binary (tilt)
 
@@ -240,7 +306,7 @@ class TEM:
 
         # Command calling
         try:
-            with open(self.__log_file, "a") as file_log:
+            with open(self.__log_file, "a", encoding="utf-8") as file_log:
                 file_log.write(
                     "\n["
                     + time.strftime("%c")
@@ -250,31 +316,34 @@ class TEM:
                 )
                 subprocess.call(aheader_cmd, stdout=file_log, stderr=file_log)
         except subprocess.CalledProcessError:
-            logger.error("ERROR: Error calling the command: %s", aheader_cmd)
-            raise subprocess.CalledProcessError
+            logger.error("Error calling the command: %s", aheader_cmd)
+            raise
         except IOError:
-            logger.error("ERROR: Log file could not be written: %s", self.__log_file)
-            raise IOError
+            logger.error("Log file could not be written: %s", self.__log_file)
+            raise
 
     def invert_mics_den(self):
-        """
-        Invert micrographs density
-        """
+        """Negate the density values of all micrographs in the stack."""
         mics = lio.load_mrc(self.__micgraphs_file)
         lio.write_mrc(-1 * mics, self.__micgraphs_file)
 
     def add_mics_misalignment(self, mn, mx, n_sigma=0):
-        """
-        Add random X and Y misalignment to each micrograh in the tilt series following a sinusoidal model:
-        f(t_angle) = mn + mx(sin(t_angle)/sin(max_t_angle))
+        """Add sinusoidal X/Y misalignment to each micrograph.
 
-        :param mn: minimun mislignment value (t_angle = 0)
-        :param mx: maximum mislignment value (t_angle = max_t_angle)
-        :param n_sigma: sigma value for Gaussian noise.
-        :return: None
+        The misalignment magnitude follows the model:
+        ``f(θ) = mn + mx * sin(θ) / sin(θ_max)``
+        with optional Gaussian noise on top.
+
+        Args:
+            mn (float): Misalignment at zero tilt.
+            mx (float): Misalignment at maximum tilt;
+                must be >= mn.
+            n_sigma (float): Standard deviation of additional
+                Gaussian noise on the shifts (default 0).
         """
 
-        assert mx >= mn
+        if mx < mn:
+            raise ValueError("mx must be >= mn.")
 
         rng = np.random.default_rng()
 
@@ -291,7 +360,7 @@ class TEM:
         for i, shift, split_f in zip(range(n_angs), shifts, split_fs):
             shift_x = shift / math.sqrt(split_f + 1)
             shift_y = split_f * shift_x
-            mics[:, :, i] = sp.ndimage.shift(
+            mics[:, :, i] = sp_shift(
                 mics[:, :, i],
                 (shift_x, shift_y),
                 output=None,
@@ -301,7 +370,6 @@ class TEM:
                 prefilter=True,
             )
 
-        # Save shited micrographs
         lio.write_mrc(mics, self.__micgraphs_file)
 
     def _resolve_snr(self, detector_snr):
@@ -310,7 +378,9 @@ class TEM:
             return None
         if isinstance(detector_snr, (list, tuple)) and len(detector_snr) >= 2:
             return round(
-                (detector_snr[1] - detector_snr[0]) * random.random() + detector_snr[0], 2
+                (detector_snr[1] - detector_snr[0]) * random.random()
+                + detector_snr[0],
+                2,
             )
         elif isinstance(detector_snr, (list, tuple)):
             return detector_snr[0]
@@ -318,7 +388,7 @@ class TEM:
 
     def simulate(self, density, tem_params, v_size):
         """Run the full TEM simulation pipeline.
-        
+
         Args:
             density: 3D density volume.
             tem_params: Dict from .tem config file.
@@ -331,23 +401,27 @@ class TEM:
         tilt_step = tem_params["TILT_ANGS_STEP"]
         tilt_angs = np.arange(tilt_rg[0], tilt_rg[1], tilt_step)
 
-        logger.info("Generating tilt series.")
+        logger.debug("Generating tilt series.")
         self.gen_tilt_series_imod(density, tilt_angs, ax="Y")
 
         self.add_mics_misalignment(
-            tem_params["MALIGN_MIN"], tem_params["MALIGN_MAX"], tem_params["MALIGN_SG"]
+            tem_params["MALIGN_MIN"],
+            tem_params["MALIGN_MAX"],
+            tem_params["MALIGN_SG"],
         )
 
         snr = self._resolve_snr(tem_params.get("DETECTOR_SNR"))
         if snr is not None:
-            logger.info(f"Adding detector noise with SNR={snr}.")
+            logger.debug("Adding detector noise with SNR=%s.", snr)
             self.add_detector_noise(snr)
 
         self.invert_mics_den()
         self.set_header(data="mics", p_size=(v_size, v_size, v_size))
 
-        logger.info("Reconstructing 3D tomogram.")
+        logger.debug("Reconstructing 3D tomogram.")
         self.recon3D_imod()
-        self.set_header(data="rec3d", p_size=(v_size, v_size, v_size), origin=(0, 0, 0))
+        self.set_header(
+            data="rec3d", p_size=(v_size, v_size, v_size), origin=(0, 0, 0)
+        )
 
         return snr

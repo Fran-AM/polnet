@@ -1,243 +1,196 @@
 """Module for membrane modeling classes.
+
+Defines:
+    Mb: Concrete membrane data holder with insertion methods.
+    MbGen: Abstract generator with _build() (per-shape) and generate_set() (shared loop).
+    MbSetResult: Lightweight result container for generate_set().
+    MbError: Custom exception for membrane-related errors.
+
+:author: Antonio Martinez-Sanchez
+:maintainer: Juan Diego Gallego Nicolás
 """
 
-from abc import ABC, abstractmethod
+from abc import (
+    ABC,
+    abstractmethod,
+)
 import random
+from typing import NamedTuple
 
 import numpy as np
-import scipy as sp
 import vtk
+from scipy.ndimage import binary_dilation
 
-from ...utils.poly import poly_mask
-from ...utils.utils import insert_svol_tomo
+from ...logging_conf import _LOGGER as logger
+from ...utils.affine import (
+    poly_scale,
+)
+from ...utils.poly import (
+    poly_mask,
+)
+from ...utils.utils import (
+    insert_svol_tomo,
+)
 
-class Mb(ABC):
-    """Abstract class to model membranes with different geometries
+# ---------------------------------------------------------------------------
+# Mb — concrete membrane data holder
+# ---------------------------------------------------------------------------
 
-    A membrane is modelled as two parallel surfaces with Gaussian profile
+
+class Mb:
+    """A single membrane: density volume, binary mask, and VTK surface.
+
+    Constructed by MbGen._build(), not by user code directly.
     """
 
     def __init__(
         self,
         voi_shape: tuple[int, int, int],
-        v_size: float = 1,
-        thick: float = 1,
-        layer_s: float = 1,
+        v_size: float,
+        thick: float,
+        layer_s: float,
+        density: np.ndarray,
+        mask: np.ndarray,
+        surf: vtk.vtkPolyData,
     ) -> None:
-        """Constructor
-
-        Defines the basic properties of a membrane.
+        """Constructor.
 
         Args:
-            voi_shape (tuple): reference volume of interest shape (X, Y and Z dimensions)
-            v_size (float, optional): reference volume of interest voxel size in angstroms. Defaults to 1.
-            thick (float, optional): membrane thickness in angstroms. Defaults to 1.
-            layer_s (float, optional): Gaussian sigma for each layer in angstroms. Defaults to 1.
+            voi_shape: Reference volume shape (X, Y, Z) in voxels.
+            v_size: Voxel size in angstroms.
+            thick: Membrane bilayer thickness in angstroms.
+            layer_s: Gaussian sigma for each layer in angstroms.
+            density: 3D float32 array with the membrane density profile.
+            mask: 3D bool array — binary occupancy mask.
+            surf: VTK polydata surface at the membrane midplane.
 
         Raises:
-            TypeError: if 'voi_shape' is not a tuple of three integers
-            ValueError: if any dimension of 'voi_shape' is not an integer
-            ValueError: if 'v_size' or 'thick' are not positive floats or 'layer_s' is negative
-
-        Returns:
-            None
+            TypeError: If voi_shape does not have length 3.
+            ValueError: If v_size is not positive or array shapes don't match voi_shape.
         """
-        if not hasattr(voi_shape, "_len_") or (len(voi_shape) != 3):
-            raise TypeError(
-                "voi_shape must be a tuple of three integers (X, Y and Z dimensions)"
-            )
-        if not all(isinstance(dim, int) for dim in voi_shape):
-            raise TypeError("All dimensions of voi_shape must be integers")
+        if not hasattr(voi_shape, "__len__") or len(voi_shape) != 3:
+            raise TypeError("voi_shape must have length 3")
         if v_size <= 0:
-            raise ValueError("v_size must be a positive float")
-        if thick <= 0:
-            raise ValueError("thick must be a positive float")
-        if layer_s < 0:
-            raise ValueError("layer_s must be a non negative float")
+            raise ValueError("v_size must be positive")
+        if density.shape != tuple(voi_shape) or mask.shape != tuple(voi_shape):
+            raise ValueError("density and mask shapes must match voi_shape")
 
-        self._voi_shape = voi_shape
+        self._voi_shape = tuple(voi_shape)
         self._v_size = float(v_size)
-        self._thick, self._layer_s = float(thick), float(layer_s)
-        self._density, self._mask, self._surf = None, None, None
+        self._thick = float(thick)
+        self._layer_s = float(layer_s)
+        self._density = density
+        self._mask = mask
+        self._surf = surf
 
     @property
     def thick(self) -> float:
-        """Get membrane thickness, bilayer gap
-
-        Returns:
-            float: membrane thickness in angstroms
-        """
+        """Membrane bilayer thickness in angstroms."""
         return self._thick
 
     @property
     def layer_s(self) -> float:
-        """Get Gaussian sigma for each layer
-
-        Returns:
-            float: layer sigma in angstroms
-        """
+        """Gaussian sigma for each layer in angstroms."""
         return self._layer_s
 
     @property
     def vol(self) -> float:
-        """Get the polymer volume
-        Args:
-            None
-
-        Raises:
-            MbError: if membrane mask has not been generated yet
-
-        Returns:
-            float: surface mask volume in cubic angstroms
-        """
-
-        if self._mask is None:
-            raise MbError("Membrane mask has not been generated yet")
-
-        return self._mask.sum() * self._v_size**3
+        """Membrane volume in cubic angstroms."""
+        return float(self._mask.sum()) * self._v_size**3
 
     @property
     def density(self) -> np.ndarray:
-        """Get the membrane density
-
-        Raises:
-            MbError: if membrane density has not been generated yet
-
-        Returns:
-            np.ndarray: a numpy 3D array representing the membrane density
-        """
-        if self._density is None:
-            raise MbError("Membrane density has not been generated yet")
-
+        """3D density array (copy)."""
         return self._density.copy()
 
     @property
     def mask(self) -> np.ndarray:
-        """Get the membrane binary mask
-
-        Raises:
-            MbError: if membrane mask has not been generated yet
-
-        Returns:
-            np.ndarray: a binary numpy 3D array representing the membrane mask
-        """
-        if self._mask is None:
-            raise MbError("Membrane mask has not been generated yet")
-
+        """3D binary mask (copy)."""
         return self._mask.copy()
 
     @property
     def vtp(self) -> vtk.vtkPolyData:
-        """Get the membrane as an VTK surface
-
-        Returns:
-            vtk.vtkPolyData: the membrane surface
-        """
-
-        if self._surf is None:
-            raise MbError("Membrane surface has not been generated yet")
-
+        """VTK polydata surface."""
         return self._surf
 
-    def masking(self, mask: np.ndarray) -> None:
-        """Removes membrane voxels in an external mask. Membrane voxels at mask 0-valued positions will be set to 0.
+    def masking(self, ext_mask: np.ndarray) -> None:
+        """Zero out membrane voxels where ext_mask is False.
 
         Args:
-            mask (np.ndarray): the input external mask. A binary ndarray with the same shape as the membrane volume of interest.
+            ext_mask: Bool array with the same shape as voi_shape.
 
         Raises:
-            TypeError: if 'mask' is not a binary numpy ndarray
-            ValueError: if 'mask' does not have the same shape as the membrane volume of interest
-
-        Returns:
-            None
+            TypeError: If ext_mask is not a boolean ndarray.
+            ValueError: If ext_mask shape doesn't match voi_shape.
         """
-        if not isinstance(mask, np.ndarray) or mask.dtype != bool:
-            raise TypeError("mask must be a binary numpy ndarray")
-        if (len(mask.shape) != len(self._voi_shape)) or (mask.shape != self._voi_shape):
-            raise ValueError(
-                "mask must have the same shape as the membrane volume of interest"
-            ) 
-        if self._density is None or self._mask is None or self._surf is None:
-            raise MbError("Membrane data has not been generated yet")
-        self._density[~mask] = 0
-        self._mask[~mask] = False
-        self._surf = poly_mask(self._surf, mask)
+        if not isinstance(ext_mask, np.ndarray) or ext_mask.dtype != bool:
+            raise TypeError("ext_mask must be a boolean ndarray")
+        if ext_mask.shape != self._voi_shape:
+            raise ValueError("ext_mask shape must match voi_shape")
+        self._density[~ext_mask] = 0
+        self._mask[~ext_mask] = False
+        self._surf = poly_mask(self._surf, ext_mask)
 
     def insert_density_svol(
-        self, tomo: np.ndarray, merge="max", mode="tomo", grow=0
+        self,
+        tomo: np.ndarray,
+        merge: str = "max",
+        mode: str = "tomo",
+        grow: int = 0,
     ) -> None:
-        """Insert a membrane into a tomogram
+        """Stamp this membrane into a target volume (in place).
 
         Args:
-            tomo: tomogram where the membrane is added
-            merge: merging mode, valid: 'min' (default), 'max', 'sum' and 'insert'
-            mode: determines which data are inserted, valid: 'tomo' (default), 'mask' and 'voi'
-            grow: number of voxel to grow the membrane tomogram to insert (default 0), only used in 'voi' mode
+            tomo: Target 3D array, modified in place.
+            merge: Merge strategy — 'min', 'max', 'sum', or 'insert'.
+            mode: Data source — 'tomo' (density), 'mask', or 'voi' (inverted mask).
+            grow: Dilation iterations for 'voi' mode.
 
         Raises:
-            TypeError: if 'tomo' is not a 3D numpy ndarray
-            ValueError: if 'tomo' does not have the same shape as the membrane tomogram
-            ValueError: if 'merge' is not 'min', 'max', 'sum' or 'insert'
-            ValueError: if 'mode' is not 'tomo', 'mask' or 'voi'
-
-        Returns:
-            None
+            TypeError: If tomo is not a 3D ndarray.
+            ValueError: If shape mismatch or invalid merge/mode.
         """
-        if not isinstance(tomo, np.ndarray) or (len(tomo.shape) != 3):
-            raise TypeError("tomo must be a 3D numpy ndarray")
-
-        if (len(tomo.shape) != len(self._voi_shape)) or (
-            tomo.shape != self._voi_shape
-        ):
-            raise ValueError(
-                "tomo must have the same shape as the membrane tomogram"
-            )
-
-        if not (merge in ["min", "max", "sum", "insert"]):
-            raise ValueError("merge must be 'min', 'max', 'sum' or 'insert'")
-        if not (mode in ["tomo", "mask", "voi"]):
-            raise ValueError("mode must be 'tomo', 'mask' or 'voi'")
+        if not isinstance(tomo, np.ndarray) or tomo.ndim != 3:
+            raise TypeError("tomo must be a 3D ndarray")
+        if tomo.shape != self._voi_shape:
+            raise ValueError("tomo shape must match voi_shape")
+        if merge not in ("min", "max", "sum", "insert"):
+            raise ValueError(f"Invalid merge mode: {merge}")
+        if mode not in ("tomo", "mask", "voi"):
+            raise ValueError(f"Invalid mode: {mode}")
 
         if mode == "tomo":
             hold = self._density
         elif mode == "mask":
             hold = self._mask
-        elif mode == "voi":
-            if grow >= 1:
-                hold = np.invert(
-                    sp.ndimage.morphology.binary_dilation(
-                        self._mask, iterations=grow
-                    )
-                )
-            else:
-                hold = np.invert(self._mask)
+        else:
+            hold = (
+                ~binary_dilation(self._mask, iterations=grow)
+                if grow >= 1
+                else ~self._mask
+            )
         insert_svol_tomo(
             hold, tomo, 0.5 * np.asarray(self._voi_shape), merge=merge
         )
 
-    def clear(self) -> None:
-        """Clears the membrane data (density, mask, surf). Call this method to reset the membrane state.
 
-        Returns:
-            None
-        """
-        self._density = None
-        self._mask = None
-        self._surf = None
+class MbSetResult(NamedTuple):
+    """Output of MbGen.generate_set()."""
 
-    @abstractmethod
-    def build(self) -> None:
-        """Generates the membrane within a tomogram.
+    voi: np.ndarray
+    density: np.ndarray
+    mask: np.ndarray
+    vtp: vtk.vtkPolyData
+    num_mbs: int
+    mb_occupancy: float
 
-        Raises:
-            NotImplementedError: if the subclass does not implement this method
-        """
-        raise NotImplementedError("Mb subclasses must implement this method")
 
 class MbGen(ABC):
-    """
-    Abstract class for generating membranes with random parameters
+    """Abstract membrane generator.
+
+    Subclasses implement ``_build()`` for a single membrane.
+    The concrete ``generate_set()`` handles the occupancy loop, overlap
+    checking, and density/mask/VOI accumulation.
     """
 
     def __init__(
@@ -248,36 +201,34 @@ class MbGen(ABC):
         over_tol: float,
         mb_den_cf_rg: tuple[float, float],
     ) -> None:
-        """
-        Constructor
+        """Constructor.
 
         Args:
-            thick_rg (tuple[float, float]): tuple with the min and max thickness values.
-            layer_s_rg (tuple[float, float]): tuple with the min and max layer sigma values.
-            occ_rg (tuple[float, float]): tuple with the min and max occupancy values.
-            over_tol (float): overlap tolerance for the membrane set.
-            mb_den_cf_rg (tuple[float, float]): tuple with the min and max membrane density contrast values.
+            thick_rg: (min, max) bilayer thickness in angstroms.
+            layer_s_rg: (min, max) Gaussian layer sigma in angstroms.
+            occ_rg: (min, max) target membrane occupancy fraction.
+            over_tol: Overlap tolerance as a fraction of membrane voxels.
+            mb_den_cf_rg: (min, max) density contrast factor.
 
-        Returns:
-            None
+        Raises:
+            ValueError: If any range is invalid.
         """
-
         if thick_rg[0] <= 0 or thick_rg[1] <= 0:
-            raise ValueError("thick_rg values must be positive floats")
+            raise ValueError("thick_rg values must be positive")
         if thick_rg[0] > thick_rg[1]:
-            raise ValueError("thick_rg values must be in the form (min, max)")
+            raise ValueError("thick_rg must be (min, max)")
         if layer_s_rg[0] < 0 or layer_s_rg[1] < 0:
-            raise ValueError("layer_s_rg values must be non negative floats")
+            raise ValueError("layer_s_rg values must be non-negative")
         if layer_s_rg[0] > layer_s_rg[1]:
-            raise ValueError("layer_s_rg values must be in the form (min, max)")
+            raise ValueError("layer_s_rg must be (min, max)")
         if occ_rg[0] < 0 or occ_rg[1] < 0:
-            raise ValueError("occ_rg values must be non negative floats")
+            raise ValueError("occ_rg values must be non-negative")
         if occ_rg[0] > occ_rg[1]:
-            raise ValueError("occ_rg values must be in the form (min, max)")
+            raise ValueError("occ_rg must be (min, max)")
         if mb_den_cf_rg[0] < 0 or mb_den_cf_rg[1] < 0:
-            raise ValueError("mb_den_cf_rg values must be non negative floats")
+            raise ValueError("mb_den_cf_rg values must be non-negative")
         if mb_den_cf_rg[0] > mb_den_cf_rg[1]:
-            raise ValueError("mb_den_cf_rg values must be in the form (min, max)")
+            raise ValueError("mb_den_cf_rg must be (min, max)")
 
         self._thick_rg = thick_rg
         self._layer_s_rg = layer_s_rg
@@ -286,53 +237,143 @@ class MbGen(ABC):
         self._mb_den_cf_rg = mb_den_cf_rg
 
     def rnd_occ(self) -> float:
-        """
-        Returns a random occupancy value within the defined range
-        """
+        """Random occupancy within the configured range."""
         return random.uniform(self._occ_rg[0], self._occ_rg[1])
-    
+
     def rnd_cf(self) -> float:
-        """
-        Returns a random membrane density contrast value within the defined range
-        """
+        """Random density contrast factor within the configured range."""
         return random.uniform(self._mb_den_cf_rg[0], self._mb_den_cf_rg[1])
 
     @property
     def over_tolerance(self) -> float:
-        """
-        Returns the overlap tolerance value 
-        """
+        """Overlap tolerance fraction."""
         return self._over_tol
 
     @classmethod
     @abstractmethod
-    def from_params(cls, params: dict):
-        """
-        Creates a membrane generator object from a dictionary of parameters
-        """
-        raise NotImplementedError("MbGen subclasses must implement this method")
+    def from_params(cls, params: dict) -> "MbGen":
+        """Create a generator from a parameter dictionary."""
+        raise NotImplementedError
 
     @abstractmethod
-    def generate(self,
-                 voi_shape: tuple[int, int, int], v_size: float) -> Mb:
-        """
-        Generates a membrane with random parameters
+    def _build(self, voi_shape: tuple[int, int, int], v_size: float) -> Mb:
+        """Generate a single membrane with random parameters.
 
         Args:
-            voi_shape (tuple[int, int, int]): shape of the volume of interest
-            v_size (float): voxel size in angstroms 
+            voi_shape: Volume shape in voxels.
+            v_size: Voxel size in angstroms.
 
         Returns:
-            Mb: generated membrane object
+            A fully constructed Mb instance.
         """
-        raise NotImplementedError("MbGen subclasses must implement this method")
+        raise NotImplementedError
+
+    def generate_set(
+        self,
+        *,
+        voi: np.ndarray,
+        v_size: float,
+        bg_voi: np.ndarray | None = None,
+        max_mbtries: int = 10,
+        grow: int = 0,
+    ) -> MbSetResult:
+        """Build a set of membranes until the occupancy target is reached.
+
+        Uses _build() to generate individual membranes, checks overlap,
+        and accumulates density/mask/VOI/VTP. All state is local — the
+        generator instance is not mutated.
+
+        Args:
+            voi: 3D bool array — volume of interest (copied internally).
+            v_size: Voxel size in angstroms.
+            bg_voi: Optional background VOI mask for additional masking.
+            max_mbtries: Maximum consecutive failures before stopping.
+            grow: VOI dilation iterations per inserted membrane.
+
+        Returns:
+            MbSetResult with the final voi, density, mask, vtp, count, and occupancy.
+        """
+        voi = voi.copy()
+        shape = voi.shape
+        density = np.zeros(shape, dtype=np.float32)
+        mask = np.zeros(shape, dtype=bool)
+        app_vtp = vtk.vtkAppendPolyData()
+        count_mbs = 0
+
+        cf = self.rnd_cf()
+        max_occ = self.rnd_occ()
+        over_tol = self._over_tol
+
+        def _occupancy():
+            voi_sum = voi.sum()
+            return mask.sum() / voi_sum if voi_sum > 0 else 0.0
+
+        def _overlaps(mb):
+            mb_mask = mb.mask
+            available = np.logical_and(voi, ~mask)
+            overlap = np.logical_and(mb_mask, ~available)
+            mb_voxels = mb_mask.sum()
+            return (
+                (overlap.sum() / mb_voxels) > over_tol
+                if mb_voxels > 0
+                else False
+            )
+
+        count_fails = 0
+        while _occupancy() < max_occ:
+            try:
+                mb = self._build(shape, v_size)
+
+                if bg_voi is not None:
+                    mb.masking(bg_voi)
+                if mb.vol <= 0:
+                    raise MbError("Generated membrane has zero volume.")
+                if _overlaps(mb):
+                    raise MbError("Membrane overlaps with existing set.")
+
+                mb.insert_density_svol(density, merge="max", mode="tomo")
+                mb.insert_density_svol(mask, merge="max", mode="mask")
+                mb.insert_density_svol(voi, merge="min", mode="voi", grow=grow)
+                app_vtp.AddInputData(mb.vtp)
+                count_mbs += 1
+                count_fails = 0
+
+            except MbError as e:
+                logger.debug(
+                    "Membrane generation try %d failed: %s",
+                    count_fails + 1,
+                    str(e),
+                )
+                count_fails += 1
+                if count_fails >= max_mbtries:
+                    logger.warning(
+                        "Failed to insert membrane after %d consecutive "
+                        "attempts.",
+                        max_mbtries,
+                    )
+                    break
+                continue
+
+        density *= cf
+
+        if count_mbs > 0:
+            app_vtp.Update()
+            surfs = poly_scale(app_vtp.GetOutput(), v_size)
+        else:
+            surfs = vtk.vtkPolyData()
+
+        return MbSetResult(
+            voi=voi,
+            density=density,
+            mask=mask,
+            vtp=surfs,
+            num_mbs=count_mbs,
+            mb_occupancy=_occupancy(),
+        )
+
 
 class MbError(Exception):
-    """Custom exception for membrane-related errors.
+    """Custom exception for membrane-related errors."""
 
-    Attributes:
-        message (str): Description of the error.
-    """
-
-    def _init_(self, message: str) -> None:
-        super()._init_(message)
+    def __init__(self, message: str) -> None:
+        super().__init__(message)

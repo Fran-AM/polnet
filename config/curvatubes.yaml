@@ -1,0 +1,29 @@
+metadata:
+    version: "1.0"
+    author: "Juan Diego Gallego Nicolás"
+    date: "2025-11-06"
+folders:
+    root: null
+    input: "data"
+    output: "results"
+global:
+    ntomos: 1
+    seed: 42
+sample:
+    voi_shape: [300, 300, 250]
+    voi_offset: [4, 4, 4]
+    v_size: 10.0
+    membranes:
+        - "in_mbs/curvatubes.mbs"
+    filaments: []
+    pns:
+        - "in_10A/4v4r_10A.pns"
+        - "in_10A/3j9i_10A.pns"
+        - "in_10A/4v4r_50S_10A.pns"
+        - "in_10A/4v4r_30S_10A.pns"
+    pms:
+        - "in_10A/mb_6rd4_10A.pms"
+        - "in_10A/mb_5wek_10A.pms"
+        - "in_10A/mb_4pe5_10A.pms"
+tem:
+    config: "in_tem/default.tem"
