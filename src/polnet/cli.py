@@ -47,7 +47,7 @@ def app() -> int:
             f"Error: Configuration file {config_path} does not exist.",
             file=sys.stderr,
         )
-        sys.exit(1)
+        return 1
 
     with open(config_path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
@@ -65,13 +65,12 @@ def app() -> int:
         print("Error: Config missing 'tem' section.", file=sys.stderr)
         return 1
 
-    # Follow up with the logging configuration
     if args.log_dir is not None:
         log_dir = Path(args.log_dir)
     else:
         root = config["folders"].get("root", None)
         if root is None:
-            root = Path(__file__).parents[2]
+            root = Path.cwd()
             config["folders"]["root"] = str(root)
 
         if "output" not in config["folders"]:
@@ -169,4 +168,4 @@ def config_parser() -> argparse.ArgumentParser:
 
 
 if __name__ == "__main__":
-    app()
+    sys.exit(app())
