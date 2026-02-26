@@ -56,9 +56,7 @@ class TEM:
         self.__rec3d_file = self.__work_dir + "/out_rec3d.mrc"
 
     def __create_work_dir(self):
-        """
-        Create the working directory
-        """
+        """Create the working directory if it does not already exist."""
         if not os.path.exists(self.__work_dir):
             os.mkdir(self.__work_dir)
 
@@ -140,7 +138,6 @@ class TEM:
         elif mode == "real":
             xyzproj_cmd += ["-m", "2"]
 
-        # Command calling
         try:
             with open(self.__log_file, "a", encoding="utf-8") as file_log:
                 file_log.write(
@@ -150,7 +147,9 @@ class TEM:
                     + " ".join(xyzproj_cmd)
                     + "\n"
                 )
-                subprocess.call(xyzproj_cmd, stdout=file_log, stderr=file_log)
+                subprocess.check_call(
+                    xyzproj_cmd, stdout=file_log, stderr=file_log
+                )
             self.__save_tangs_file(angs)
         except subprocess.CalledProcessError:
             logger.error("Error calling the command: %s", xyzproj_cmd)
@@ -195,7 +194,6 @@ class TEM:
             sg_fg = mn / snr
             mics[:, :, i] = mic + rng.normal(mn, sg_fg, mic.shape)
 
-        # Update micrographs file
         lio.write_mrc(mics, self.__micgraphs_file)
 
     def recon3D_imod(self, thick=None):
@@ -217,9 +215,6 @@ class TEM:
             IOError: If the log file cannot be written.
         """
 
-        # Call to IMOD binary (tilt)
-
-        # Building the command
         tilt_cmd = [IMOD_CMD_TILT]
         vol = lio.load_mrc(self.__vol_file, mmap=True, no_saxes=False)
         tilt_cmd += ["-inp", self.__micgraphs_file]
@@ -232,7 +227,6 @@ class TEM:
                 raise ValueError("thick must be greater than 0.")
             tilt_cmd += ["-THICKNESS", str(thick)]
 
-        # Command calling
         try:
             with open(self.__log_file, "a", encoding="utf-8") as file_log:
                 file_log.write(
@@ -242,7 +236,9 @@ class TEM:
                     + " ".join(tilt_cmd)
                     + "\n"
                 )
-                subprocess.call(tilt_cmd, stdout=file_log, stderr=file_log)
+                subprocess.check_call(
+                    tilt_cmd, stdout=file_log, stderr=file_log
+                )
         except subprocess.CalledProcessError:
             logger.error("Error calling the command: %s", tilt_cmd)
             raise
@@ -281,9 +277,6 @@ class TEM:
             if not hasattr(origin, "__len__") or len(origin) != 3:
                 raise ValueError("origin must have exactly 3 elements.")
 
-        # Call to IMOD binary (tilt)
-
-        # Building the command
         aheader_cmd = [IMOD_CMD_AHEADER]
         if data == "mics":
             aheader_cmd += [
@@ -304,7 +297,6 @@ class TEM:
                 str(origin[0]) + "," + str(origin[1]) + "," + str(origin[2]),
             ]
 
-        # Command calling
         try:
             with open(self.__log_file, "a", encoding="utf-8") as file_log:
                 file_log.write(
@@ -314,7 +306,9 @@ class TEM:
                     + " ".join(aheader_cmd)
                     + "\n"
                 )
-                subprocess.call(aheader_cmd, stdout=file_log, stderr=file_log)
+                subprocess.check_call(
+                    aheader_cmd, stdout=file_log, stderr=file_log
+                )
         except subprocess.CalledProcessError:
             logger.error("Error calling the command: %s", aheader_cmd)
             raise
@@ -347,7 +341,6 @@ class TEM:
 
         rng = np.random.default_rng()
 
-        # Micrographs loop
         mics = lio.load_mrc(self.__micgraphs_file)
         angs = np.abs(np.radians(self.__load_tangs_file()))
         n_angs = len(angs)
@@ -373,7 +366,16 @@ class TEM:
         lio.write_mrc(mics, self.__micgraphs_file)
 
     def _resolve_snr(self, detector_snr):
-        """Resolve SNR value from config (scalar, range, or None)."""
+        """Resolve SNR value from config (scalar, range, or None).
+
+        Args:
+            detector_snr (float | list | tuple | None): SNR
+                specification — a scalar, a two-element
+                ``[lo, hi]`` range, or None to skip noise.
+
+        Returns:
+            float | None: Resolved SNR value, or None.
+        """
         if detector_snr is None:
             return None
         if isinstance(detector_snr, (list, tuple)) and len(detector_snr) >= 2:

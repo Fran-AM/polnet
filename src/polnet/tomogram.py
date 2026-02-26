@@ -110,8 +110,6 @@ class SynthTomo:
             shutil.rmtree(self._tomo_dir)
             logger.info("Output directory %s cleared.", self._tomo_dir)
 
-        return None
-
     def generate_sample(self) -> None:
         """Build the synthetic sample.
 
@@ -186,8 +184,6 @@ class SynthTomo:
 
         toc = time.time()
         logger.info("Synthetic sample generated in %.2f seconds.", toc - tic)
-
-        return None
 
     def simulate_tem(self) -> None:
         """Simulate TEM imaging and reconstruct the tomogram.
@@ -337,5 +333,3 @@ class SynthTomo:
             return
 
         self._sample.print_summary()
-
-        return None
