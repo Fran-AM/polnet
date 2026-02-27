@@ -38,6 +38,7 @@ import random
 import shutil
 import tempfile
 import threading
+from pathlib import Path
 
 import numpy as np
 import vtk
@@ -63,10 +64,6 @@ from ...utils.utils import (
     lin_map,
     poly_threshold,
 )
-
-# ---------------------------------------------------------------------------
-# Helfrich --> polynomial coefficient mapping
-# ---------------------------------------------------------------------------
 
 
 def _helfrich_to_polynomial(
@@ -114,11 +111,6 @@ def _helfrich_to_polynomial(
     return a20, a11, a02, b10, b01, c
 
 
-# ---------------------------------------------------------------------------
-# Output suppression context manager
-# ---------------------------------------------------------------------------
-
-
 @contextlib.contextmanager
 def _suppress_curvatubes_output():
     """Suppress all display, print, and file output from curvatubes.
@@ -134,21 +126,17 @@ def _suppress_curvatubes_output():
     orig_show = plt.show
     plt.show = lambda *_a, **_kw: None
 
-    tmpdir = tempfile.mkdtemp(prefix="polnet_cvtub_")
-    os.makedirs(os.path.join(tmpdir, "Curves"), exist_ok=True)
+    tmpdir = Path(tempfile.mkdtemp(prefix="polnet_cvtub_"))
+    (tmpdir / "Curves").mkdir(parents=True, exist_ok=True)
 
     with contextlib.redirect_stdout(io.StringIO()):
         try:
-            yield tmpdir + os.sep
+            yield str(tmpdir) + os.sep
         finally:
             plt.show = orig_show
             plt.close("all")
             shutil.rmtree(tmpdir, ignore_errors=True)
 
-
-# ---------------------------------------------------------------------------
-# Curvatubes imports  (vendored under src/external/cvtub/)
-# ---------------------------------------------------------------------------
 
 try:
     from external.cvtub import generator as _cvtub_gen
@@ -159,11 +147,6 @@ except ImportError as exc:
         "'external.cvtub'.  Ensure the 'src/external/cvtub/' "
         "package exists and that 'src/' is on the Python path."
     ) from exc
-
-
-# ---------------------------------------------------------------------------
-# CurvatubesGen
-# ---------------------------------------------------------------------------
 
 
 @MbFactory.register("curvatubes")
@@ -469,7 +452,7 @@ class CurvatubesGen(MbGen):
             self._maxeval,
         )
 
-        # --- progress monitor (reads curvatubes global state) ---
+        # Progress
         stop_event = threading.Event()
         inform_every = self._inform_every
         maxeval = self._maxeval

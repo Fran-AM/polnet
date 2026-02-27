@@ -278,12 +278,12 @@ class PnGen:
 
         # Convert relative path to absolute path
         mmer_path = params["MMER_SVOL"]
-        if mmer_path.startswith("/"):
+        if Path(mmer_path).is_absolute():
             mmer_path = "." + mmer_path
         mmer_path = data_path / mmer_path
 
         # Check if PMER_OCC is a float or a tuple
-        if isinstance(params["PMER_OCC"], float):
+        if isinstance(params["PMER_OCC"], (int, float)):
             params["PMER_OCC"] = (params["PMER_OCC"], params["PMER_OCC"])
 
         try:

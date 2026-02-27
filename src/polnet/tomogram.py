@@ -201,7 +201,7 @@ class SynthTomo:
 
         self._tomo_dir.mkdir(parents=True, exist_ok=True)
 
-        self._temic = TEM(str(self._tomo_dir / "tem"))
+        self._temic = TEM(self._tomo_dir / "tem")
         tem_file = TEMFile()
         tem_params = tem_file.load(self._tem_file_path)
 

@@ -41,6 +41,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MRC files opened in read-only mode where appropriate.
 - Import organisation standardised (stdlib → third-party → local).
 
+### Not Yet Migrated
+
+- **Legacy scripts** (`scripts/`) — the v1.0.0 Python scripts have not been updated to use the new v1.1.0 API and YAML configuration system. They will be adapted in a future release.
+- **Jupyter notebooks** (`gui/`) — the interactive notebooks for dataset generation, membrane alignment, model creation, and atomic-to-density conversion still depend on the v1.0.0 flat module layout and will not work with the current package structure. Updated notebooks will be provided in a future release.
+
 ## [1.0.0] - 2025-07-29
 
 ### Added

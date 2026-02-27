@@ -255,7 +255,7 @@ class PmGen:
 
         # Convert relative path to absolute path
         mmer_path = params["MMER_SVOL"]
-        if mmer_path.startswith("/"):
+        if Path(mmer_path).is_absolute():
             mmer_path = "." + mmer_path
         mmer_path = data_path / mmer_path
 
